@@ -130,7 +130,9 @@ function draw() {
 	if(checkboxIK.checked()) {
 		update_q_from_transformations();
 		// TODO: STUDENT'S CODE STARTS
-    
+        for(let p of IK_points) {
+            take_IK_step(p);
+        }
 		// STUDENT'S CODE ENDS
 	} else {
 		IK_points = [];
