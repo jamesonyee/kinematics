@@ -2,70 +2,75 @@
 
 function take_IK_step() {
   // return the gradient of the IK residual, a 1d array of length ndofs
-	
-	// TODO: STUDENT'S CODE STARTS
-	// Please copy your code from P1
   let g = math.zeros([q.length]);
+  let step_size = 0.1;
 
   // Iterate over all IK points
   IK_points.forEach((p) => {
     // Current and target position
-    let cur = math.flatten(math.subset(p.tr.global_transform(), math.index([0, 1], 2)));
-    let target = p.target_pos;
-    let error = math.subtract(target, cur);
+    let T_point = p.tr.global_transform();
+    let cur_pos = math.flatten(math.subset(T_point, math.index([0, 1], 2)));
+    let target_pos = p.target_pos;
+    let error = math.subtract(target_pos, cur_pos);
 
-    // Compute Jacobian
+     // Compute Jacobian
     let J = compute_jacobian(p.tr);
-
+    
     // Compute gradient step
-    let step = math.multiply(math.transpose(J), error);
-
+    let step = new Array(q.length).fill(0);
+    for (let i = 0; i < q.length; i++) {
+      step[i] = J.get([0, i]) * error[0] + J.get([1, i]) * error[1];
+    }
+    
+    //Accumulate gradient from all IK points
     g = math.add(g, step);
   });
 
-  // Normalize and scale step
-  g = math.multiply(0.5, g);
-
-  // Apply gradient step
+  // Apply gradient step  to update joint positions
   for (let i = 0; i < q.length; i++) {
-    q[i] += g[i];
+    q[i] += step_size * g[i];
     dof_list[i].set_dof(q[i]);
   }
- 
-	// STUDENT'S CODE ENDS
-	
+
   return g;
 }
 
 function compute_jacobian(body_point) {
-    // return the Jacobian matrix, a 2xN matrix
-    let ndofs = dof_list.length;
-    let J = math.zeros([2, ndofs]);
+  // return the Jacobian matrix, a 2xN matrix
 
-    p = body_point.global_position();
+  let ndofs = dof_list.length;
+  let J = math.zeros([2, ndofs]);
 
-    for(let i = 0; i < ndofs; i++) {
-        let jnt = dof_list[i];
+  for (let i = 0; i < ndofs; i++) {
+    let transform = dof_list[i];
+    
+     //Only joints that affect this point
+    if (!body_point.dependent_dofs.has(transform)) continue;
 
-        //Only joints that affect this point
-        if (!body_point.dependent_dofs.has(jnt)) continue;
+    
+    if (transform instanceof Translation) {
+      let axis_vec = transform.axis === "x" ? [1, 0] : [0, 1];
+      
+      let tempJ = J.valueOf();
+      tempJ[0][i] = axis_vec[0];
+      tempJ[1][i] = axis_vec[1];
+      J = math.matrix(tempJ);
+      
+    } else if (transform instanceof Hinge) {
+      let joint_pos = transform.global_position();
+      let point_pos = body_point.global_position();
+      let r = math.subtract(point_pos, joint_pos);
+      
+      let J_column = [-r[1], r[0]];
+      
+      // Fill the Jacobian column
+      let tempJ = J.valueOf();
+      tempJ[0][i] = J_column[0];
+      tempJ[1][i] = J_column[1];
+      J = math.matrix(tempJ);
+    }
+  }
 
-        // Compute derivative of transformation chain
-        let T_parent_to_joint = transform_between(null, jnt.parent);
-        let dT = jnt.local_derivative();
-        let T_joint_to_body = transform_between(jnt, body_point);
-
-        // dp = dT * T_joint_to_body * [0,0,1]
-        let dp = math.multiply(T_parent_to_joint, math.multiply(dT, math.multiply(T_joint_to_body, [0, 0, 1])));
-
-        // Fill the Jacobian column
-        let tempJ = J.valueOf(); // Get the underlying array
-          tempJ[0][i] = dp[0];
-          tempJ[1][i] = dp[1];
-        J = math.matrix(tempJ);
-      }
-	// STUDENT'S CODE ENDS
-	
   return J;
 }
 // STUDENT'S CODE ENDS
