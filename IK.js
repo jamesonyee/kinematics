@@ -47,7 +47,7 @@ function compute_jacobian(body_point) {
     for(let i = 0; i < ndofs; i++) {
         let jnt = dof_list[i];
 
-        //Only joints taht affect this point
+        //Only joints that affect this point
         if (!body_point.dependent_dofs.has(jnt)) continue;
 
         // Compute derivative of transformation chain
@@ -59,9 +59,11 @@ function compute_jacobian(body_point) {
         let dp = math.multiply(T_parent_to_joint, math.multiply(dT, math.multiply(T_joint_to_body, [0, 0, 1])));
 
         // Fill the Jacobian column
-        J = math.subset(math.index(0, i), dp[0]);
-        J = math.subset(math.index(1, i), dp[1]);
-    }
+        let tempJ = J.valueOf(); // Get the underlying array
+          tempJ[0][i] = dp[0];
+          tempJ[1][i] = dp[1];
+        J = math.matrix(tempJ);
+      }
 	// STUDENT'S CODE ENDS
 	
   return J;
