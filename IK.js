@@ -1,70 +1,85 @@
 // STUDENT'S CODE STARTS
 
 function take_IK_step() {
-  // return the gradient of the IK residual, a 1d array of length ndofs
-  let g = math.zeros([q.length]);
-  let step_size = 0.1;
+  let ndofs = q.length;
+  let g = math.zeros([ndofs]);
 
-  // Iterate over all IK points
+  let step_size = 0.05;
+
+  if (IK_points.length === 0) return;
+
+  let w = 1.0 / IK_points.length;
+
   IK_points.forEach((p) => {
-    // Current and target position
-    let T_point = p.tr.global_transform();
-    let cur_pos = math.flatten(math.subset(T_point, math.index([0, 1], 2)));
-    let target_pos = p.target_pos;
-    let error = math.subtract(target_pos, cur_pos);
 
-     // Compute Jacobian
+    let T_point = p.tr.global_transform();
+    let cur_pos = [T_point[0][2], T_point[1][2]];
+    let error = math.subtract(p.target_pos, cur_pos);
+
     let J = compute_jacobian(p.tr);
-    
-    // Compute gradient step
-    let step = new Array(q.length).fill(0);
-    for (let i = 0; i < q.length; i++) {
-      step[i] = J.get([0, i]) * error[0] + J.get([1, i]) * error[1];
+
+    let step = new Array(ndofs).fill(0);
+    for (let i = 0; i < ndofs; i++) {
+      step[i] = J.get([0,i]) * error[0] + J.get([1,i]) * error[1];
+      step[i] *= w;
     }
-    
-    //Accumulate gradient from all IK points
+
     g = math.add(g, step);
   });
 
-  // Apply gradient step  to update joint positions
-  for (let i = 0; i < q.length; i++) {
+  // Only update joint DOFs once 
+  for (let i = 0; i < ndofs; i++) {
     q[i] += step_size * g[i];
-    dof_list[i].set_dof(q[i]);
   }
 
-  return g;
+  // Now push the updated q into the model 
+  set_joint_positions(q);
 }
 
-function compute_jacobian(body_point) {
-  // return the Jacobian matrix, a 2xN matrix
 
+function compute_jacobian(body_point) {
   let ndofs = dof_list.length;
   let J = math.zeros([2, ndofs]);
 
   for (let i = 0; i < ndofs; i++) {
     let transform = dof_list[i];
-    
-     //Only joints that affect this point
+
+    // Only joints that affect this point
     if (!body_point.dependent_dofs.has(transform)) continue;
 
-    
-    if (transform instanceof Translation) {
-      let axis_vec = transform.axis === "x" ? [1, 0] : [0, 1];
-      
-      let tempJ = J.valueOf();
-      tempJ[0][i] = axis_vec[0];
-      tempJ[1][i] = axis_vec[1];
-      J = math.matrix(tempJ);
-      
-    } else if (transform instanceof Hinge) {
+    let tempJ = J.valueOf();
+
+    // Translation Joint
+	if (transform instanceof Translation) {
+	
+	    // local direction in 2D
+	    let axis_local = transform.axis === "x" ? [1, 0] : [0, 1];
+	
+	    // full global transform
+	    let G = transform.global_transform();
+	
+	    // rotate local axis by global rotation
+	    let axis_world = [
+	        G[0][0] * axis_local[0] + G[0][1] * axis_local[1],
+	        G[1][0] * axis_local[0] + G[1][1] * axis_local[1]
+	    ];
+	
+	    tempJ[0][i] = axis_world[0];
+	    tempJ[1][i] = axis_world[1];
+	
+	    J = math.matrix(tempJ);
+	}
+
+
+    // Hinge joint
+    else if (transform instanceof Hinge) {
+
       let joint_pos = transform.global_position();
       let point_pos = body_point.global_position();
       let r = math.subtract(point_pos, joint_pos);
-      
+
       let J_column = [-r[1], r[0]];
-      
-      // Fill the Jacobian column
-      let tempJ = J.valueOf();
+
       tempJ[0][i] = J_column[0];
       tempJ[1][i] = J_column[1];
       J = math.matrix(tempJ);
@@ -73,4 +88,5 @@ function compute_jacobian(body_point) {
 
   return J;
 }
+
 // STUDENT'S CODE ENDS
