@@ -156,59 +156,119 @@ class Keyframes {
       return;
     }
 
-	this.interpolated_frames = [];
-	for (let i = 0; i < NUM_OF_FRAMES; i++) {
-	    this.interpolated_frames.push(math.zeros([dof_list.length]));
-	}
+    this.interpolated_frames = [];
+    for (let i = 0; i < NUM_OF_FRAMES; i++) {
+        this.interpolated_frames.push(math.zeros([dof_list.length]));
+    }
 
     const n = this.keys.length;
 
-    // Each segment uses 4 control points: k0..k3
-    // and spans from time of k1 to time of k2
-    for (let s = 0; s <= n - 4; s++) {
-      let k0 = this.keys[s];
-      let k1 = this.keys[s + 1];
-      let k2 = this.keys[s + 2];
-      let k3 = this.keys[s + 3];
+    // First segment - repeat first keyframe twice
+    // Use control points: [key0, key0, key1, key2]
+    let first_k0 = this.keys[0];
+    let first_k1 = this.keys[0];  // Repeat first keyframe
+    let first_k2 = this.keys[1];
+    let first_k3 = this.keys[2];
+    
+    let first_tStart = first_k1[0];
+    let first_tEnd = first_k2[0];
+    let first_duration = first_tEnd - first_tStart;
+    if (first_duration > 1) {
+        for (let f = first_tStart; f <= first_tEnd && f < NUM_OF_FRAMES; f++) {
+            let u = (f - first_tStart) / first_duration;
+            let u2 = u * u;
+            let u3 = u2 * u;
 
-      let tStart = k1[0];
-      let tEnd = k2[0];
-      let duration = tEnd - tStart;
-      if (duration <= 1) continue;
+            // Uniform cubic B-spline basis
+            let B0 = (1 - 3*u + 3*u2 - u3) / 6.0;
+            let B1 = (4 - 6*u2 + 3*u3) / 6.0;
+            let B2 = (1 + 3*u + 3*u2 - 3*u3) / 6.0;
+            let B3 = u3 / 6.0;
 
-      let P0 = k0[1];
-      let P1 = k1[1];
-      let P2 = k2[1];
-      let P3 = k3[1];
-
-      // We keep exact key poses at tStart and tEnd,
-		for (let f = tStart; f <= tEnd && f < NUM_OF_FRAMES; f++) {
-		    let u = (f - tStart) / duration;
-		    let u2 = u * u;
-		    let u3 = u2 * u;
-		
-		    // Uniform cubic B-spline basis
-		    let B0 = (1 - 3*u + 3*u2 - u3) / 6.0;
-		    let B1 = (4 - 6*u2 + 3*u3) / 6.0;
-		    let B2 = (1 + 3*u + 3*u2 - 3*u3) / 6.0;
-		    let B3 = u3 / 6.0;
-		
-		    let pose = math.add(
-		        math.add(
-		            math.multiply(B0, P0),
-		            math.multiply(B1, P1)
-		        ),
-		        math.add(
-		            math.multiply(B2, P2),
-		            math.multiply(B3, P3)
-		        )
-		    );
-		
-		    this.interpolated_frames[f] = pose;
-		}
-
+            let pose = math.add(
+                math.add(
+                    math.multiply(B0, first_k0[1]),
+                    math.multiply(B1, first_k1[1])
+                ),
+                math.add(
+                    math.multiply(B2, first_k2[1]),
+                    math.multiply(B3, first_k3[1])
+                )
+            );
+            this.interpolated_frames[f] = pose;
+        }
     }
-  }
+
+    for (let s = 0; s <= n - 4; s++) {
+        let k0 = this.keys[s];
+        let k1 = this.keys[s + 1];
+        let k2 = this.keys[s + 2];
+        let k3 = this.keys[s + 3];
+
+        let tStart = k1[0];
+        let tEnd = k2[0];
+        let duration = tEnd - tStart;
+        if (duration <= 1) continue;
+
+        for (let f = tStart; f <= tEnd && f < NUM_OF_FRAMES; f++) {
+            let u = (f - tStart) / duration;
+            let u2 = u * u;
+            let u3 = u2 * u;
+
+            let B0 = (1 - 3*u + 3*u2 - u3) / 6.0;
+            let B1 = (4 - 6*u2 + 3*u3) / 6.0;
+            let B2 = (1 + 3*u + 3*u2 - 3*u3) / 6.0;
+            let B3 = u3 / 6.0;
+
+            let pose = math.add(
+                math.add(
+                    math.multiply(B0, k0[1]),
+                    math.multiply(B1, k1[1])
+                ),
+                math.add(
+                    math.multiply(B2, k2[1]),
+                    math.multiply(B3, k3[1])
+                )
+            );
+            this.interpolated_frames[f] = pose;
+        }
+    }
+
+    //Last segment - repeat last keyframe twice  
+    // Use control points: [key[n-3], key[n-2], key[n-1], key[n-1]]
+    let last_k0 = this.keys[n-3];
+    let last_k1 = this.keys[n-2];
+    let last_k2 = this.keys[n-1];
+    let last_k3 = this.keys[n-1];  // Repeat last keyframe
+    
+    let last_tStart = last_k1[0];  
+    let last_tEnd = last_k2[0]; 
+    let last_duration = last_tEnd - last_tStart;
+    if (last_duration > 1) {
+        for (let f = last_tStart; f <= last_tEnd && f < NUM_OF_FRAMES; f++) {
+            let u = (f - last_tStart) / last_duration;
+            let u2 = u * u;
+            let u3 = u2 * u;
+
+            let B0 = (1 - 3*u + 3*u2 - u3) / 6.0;
+            let B1 = (4 - 6*u2 + 3*u3) / 6.0;
+            let B2 = (1 + 3*u + 3*u2 - 3*u3) / 6.0;
+            let B3 = u3 / 6.0;
+
+            let pose = math.add(
+                math.add(
+                    math.multiply(B0, last_k0[1]),
+                    math.multiply(B1, last_k1[1])
+                ),
+                math.add(
+                    math.multiply(B2, last_k2[1]),
+                    math.multiply(B3, last_k3[1])
+                )
+            );
+            this.interpolated_frames[f] = pose;
+        }
+      }
+}
 
 	
 	draw_trajectory() {
