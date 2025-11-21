@@ -1245,8 +1245,25 @@ function drawFireflyButterfly(fx, fy, size, phase) {
 }
 
 function drawCharacterWingsOverlay() {
+  let bodyAnchor = name_to_transform["body_segment"];  
+  if (!bodyAnchor) {
+    return; 
+  }
+  let bodyPos = bodyAnchor.global_position(); // [x, y]
+  let baseRot = 0;
+  let bodyRot = 0;
+  if (name_to_transform["base_r"]) {
+    baseRot = name_to_transform["base_r"].get_dof();
+  }
+  if (name_to_transform["body_r"]) {
+    bodyRot = name_to_transform["body_r"].get_dof();
+  }
+  let totalRot = baseRot + bodyRot;
+
   push();
   noStroke();
+  translate(bodyPos[0], bodyPos[1]);
+  rotate(totalRot);
   let speedNorm = 0.0;
   if (sliderSpeed) {
     let raw    = sliderSpeed.value();
@@ -1272,7 +1289,6 @@ function drawCharacterWingsOverlay() {
     alphaLower
   );
 
-  // Upper wings
   fill(cUpper);
   ellipse(-0.80, -0.08 + puff, 1.35, 0.95); // left upper
   ellipse( 0.80, -0.08 + puff, 1.35, 0.95); // right upper
@@ -1281,7 +1297,6 @@ function drawCharacterWingsOverlay() {
   fill(cLower);
   ellipse(-0.70, 0.18 - puff * 0.7, 1.20, 0.82); // left lower
   ellipse( 0.70, 0.18 - puff * 0.7, 1.20, 0.82); // right lower
-
   let spotColor = color(
     red(WING_FILL_1),
     green(WING_FILL_1),
