@@ -137,7 +137,6 @@ class Keyframes {
 	    this.interpolated_frames[i] = math.zeros([dof_list.length]);
 	  }
 	
-	  // Pad keys as de Boor-like control points
 	  let keys = [
 	    this.keys[0], this.keys[0],
 	    ...this.keys,
