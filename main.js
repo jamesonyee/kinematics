@@ -509,15 +509,6 @@ function generateFlapCycle() {
     keyframes.add_keyframe(t, pose);
   }
 
-  // Rebuild the interpolated frames (default to linear)
-  keyframes.linear_interpolation();
-
-  let pose0 = keyframes.interpolated_frames[0];
-  if (pose0) {
-    apply_wing_symmetry_to_q(pose0);
-    set_joint_positions(pose0);
-  }
-
   playing = true;
 }
 
