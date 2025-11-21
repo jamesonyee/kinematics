@@ -20,6 +20,9 @@ let BODY_FILL;
 let JOINT_FILL;
 let JOINT_OUTLINE;
 
+const BUTTERFLY_NAME    = "Ana the Butterfly";
+const BUTTERFLY_TAGLINE = "dancing through the forest light";
+
 let checkboxIK;
 let sliderTimeline;
 let buttonPlayStop;
@@ -72,13 +75,13 @@ function setup() {
 	BLACK = color("rgb(0,0,0)");
 	GRAY = color("rgb(200,200,200)");
   
-	// Pretty butterfly palette
-	WING_FILL_1  = color(255, 120, 215, 150);  // slightly stronger pink
-	WING_FILL_2  = color(255, 190,  70, 160);  // richer gold
+	// Pretty butterfly palette (slightly richer)
+	WING_FILL_1  = color(255, 120, 215, 170);  // upper wings: brighter pink
+	WING_FILL_2  = color(255, 190,  70, 180);  // lower wings: warm gold
 	WING_OUTLINE = color(255);                 // bright white
-	BODY_FILL    = color(35, 18, 10);          // a bit darker
-	JOINT_FILL   = color(250);                 // almost white
-	JOINT_OUTLINE= color(10);                  // near-black
+	BODY_FILL    = color(30, 18, 12);          // darker body
+	JOINT_FILL   = color(252);                 // soft white
+	JOINT_OUTLINE= color(15);                  // almost black
 
   setup_character();
 
@@ -112,9 +115,71 @@ function setup() {
   sliderTimeline.position(x_offset_draw - 400, 170);
   sliderTimeline.size(800);
 
-	sliderSpeed = createSlider(25, 400, 100, 25);
-	sliderSpeed.position(50, 220);   // directly under the label
-	sliderSpeed.style('width', '200px');
+  sliderSpeed = createSlider(25, 400, 100, 25);
+  sliderSpeed.position(50, 220);   
+  sliderSpeed.style('width', '220px');
+  sliderSpeed.addClass('flight-speed-slider');
+
+  const sliderCSS = `
+    .flight-speed-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.6);
+      box-shadow:
+        0 0 0 2px rgba(40, 20, 10, 0.45),
+        0 0 10px rgba(255, 200, 140, 0.4);
+      outline: none;
+    }
+
+    .flight-speed-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      background: radial-gradient(
+        circle at 30% 30%,
+        #ffffff 0%,
+        #ffe3f6 45%,
+        #ffb78a 80%
+      );
+      box-shadow:
+        0 0 6px rgba(255, 220, 150, 0.95),
+        0 0 14px rgba(255, 180, 120, 0.8);
+      cursor: pointer;
+      margin-top: -6px; /* centers the thumb on the track */
+    }
+
+    .flight-speed-slider::-moz-range-track {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.6);
+      box-shadow:
+        0 0 0 2px rgba(40, 20, 10, 0.45),
+        0 0 10px rgba(255, 200, 140, 0.4);
+    }
+
+    .flight-speed-slider::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      background: radial-gradient(
+        circle at 30% 30%,
+        #ffffff 0%,
+        #ffe3f6 45%,
+        #ffb78a 80%
+      );
+      box-shadow:
+        0 0 6px rgba(255, 220, 150, 0.95),
+        0 0 14px rgba(255, 180, 120, 0.8);
+      cursor: pointer;
+    }
+  `;
+  createElement('style', sliderCSS);
 
 	keyframes = new Keyframes();
 }
@@ -128,22 +193,10 @@ function draw() {
     background(255);
   }
 
-  push();
-  rectMode(CENTER);
-
-  let labelX = 150;   // horizontally over the slider (50 + 200/2)
-  let labelY = 205;   // moved a bit down, just above the slider
-
-  noStroke();
-  fill(255, 255, 255, 230);   // almost opaque white
-  rect(labelX, labelY, 130, 26, 13);   // wider + more rounded
-
-  fill(40, 25, 10);
-  textAlign(CENTER, CENTER);
-  textSize(14);
-  text("Flight speed", labelX, labelY);
-  pop();
-
+  drawFlightSpeedLabel();
+  // Cute name tag for Ana the Butterfly
+  drawButterflyNameplate();
+	
   translate(x_offset_draw, y_offset_draw);
   scale(g_s);
 
@@ -597,4 +650,119 @@ function play_animation() {
        forestAmbience.pause();
      }
   }
+}
+
+function drawButterflyNameplate() {
+  push();
+
+  textAlign(LEFT, CENTER);
+
+  // Font sizes
+  let mainSize = 20;
+  let subSize  = 13;
+
+  textSize(mainSize);
+  let mainWidth = textWidth(BUTTERFLY_NAME);
+
+  textSize(subSize);
+  let subWidth  = textWidth(BUTTERFLY_TAGLINE);
+
+  let paddingX = 16;
+  let paddingY = 8;
+
+  let cardWidth  = max(mainWidth, subWidth) + paddingX * 2;
+  let cardHeight = mainSize + subSize + paddingY * 3;
+
+  // bottom right ish but away from sliders
+  let cx = width * 0.78;
+  let cy = height * 0.82;
+
+  let x = cx - cardWidth  / 2;
+  let y = cy - cardHeight / 2;
+
+  noStroke();
+  fill(0, 0, 0, 80);
+  rect(x + 3, y + 4, cardWidth, cardHeight, 18);
+
+  fill(255, 255, 255, 230);
+  rect(x, y, cardWidth, cardHeight, 18);
+
+  noFill();
+  stroke(40, 25, 10, 200);
+  strokeWeight(1.5);
+  rect(x, y, cardWidth, cardHeight, 18);
+
+  // Text
+  noStroke();
+  fill(40, 25, 10);          
+  textSize(mainSize);
+  text(BUTTERFLY_NAME, x + paddingX, y + paddingY + mainSize * 0.4);
+
+  fill(90, 60, 40, 220);     
+  textSize(subSize);
+  text(
+    BUTTERFLY_TAGLINE,
+    x + paddingX,
+    y + paddingY + mainSize + subSize * 1.2
+  );
+
+  pop();
+}
+
+function drawFlightSpeedLabel() {
+  push();
+  rectMode(CENTER);
+  textAlign(CENTER, CENTER);
+
+  let labelX = 150;
+  let labelY = 205;
+  let cardW  = 170;
+  let cardH  = 38;
+
+  noStroke();
+  fill(0, 0, 0, 90);
+  rect(labelX + 3, labelY + 4, cardW + 6, cardH + 6, 20);
+
+  fill(255, 255, 255, 235);
+  rect(labelX, labelY, cardW, cardH, 20);
+
+  let frac = 0;
+  if (sliderSpeed) {
+    let minV = sliderSpeed.elt.min ? Number(sliderSpeed.elt.min) : 0;
+    let maxV = sliderSpeed.elt.max ? Number(sliderSpeed.elt.max) : 100;
+    frac = constrain((sliderSpeed.value() - minV) / (maxV - minV), 0, 1);
+  }
+
+  let stripeY = labelY - cardH * 0.32;
+  let stripeW = cardW * 0.78;
+  let stripeH = 6;
+
+  fill(255, 255, 255, 90);               // pale track
+  rect(labelX, stripeY, stripeW, stripeH, 4);
+
+  let fillW = stripeW * frac;
+
+  if (fillW > 0.001) {
+    let leftX = labelX - stripeW / 2;
+
+    let leftW = min(fillW, fillW / 2);
+    fill(red(WING_FILL_1), green(WING_FILL_1), blue(WING_FILL_1), 220);
+    rect(leftX + leftW / 2, stripeY, leftW, stripeH, 4);
+
+    let rightW = fillW - leftW;
+    if (rightW > 0) {
+      fill(red(WING_FILL_2), green(WING_FILL_2), blue(WING_FILL_2), 230);
+      rect(leftX + leftW + rightW / 2, stripeY, rightW, stripeH, 4);
+    }
+  }
+
+  fill(40, 25, 10);
+  textSize(14);
+  text("Flight speed", labelX, labelY - 2);
+
+  fill(90, 60, 40, 220);
+  textSize(10);
+  text("how fast Ana flaps", labelX, labelY + 10);
+
+  pop();
 }
