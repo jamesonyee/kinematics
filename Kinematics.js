@@ -64,37 +64,54 @@ class Fixed extends Transformation {
   local_transform() {
     return this._value;
   }
-	
-	draw() {
-		let limb_width = 0.04;
-		push();
-		strokeWeight(0.01);
-		stroke(PURPLE);	
-		let mat = math.flatten(
-      math.transpose(math.subset(this.parent.global_transform(), math.index([0, 1], [0,1,2])))
-			);
-		applyMatrix(mat);
-		
-		let tip = math.flatten(math.subset(this._value, math.index([0, 1], 2)));
-		let length = math.norm(tip);
-		if (length > TINYNUMBER){		
-			let rotate_radian;
-			if (tip[0] > 0)
-				rotate_radian = math.asin(math.divide(tip[1], length));
-			else
-				rotate_radian = PI - math.asin(math.divide(tip[1], length));
-			rotate(rotate_radian);
-			line(0.05, limb_width, length - 0.05, limb_width);
-			line(0.05, -limb_width, length - 0.05, -limb_width);
-			noFill();
-			arc(0, 0, 0.13, 0.13, -PI * 0.2, PI * 0.2);
-			if (this.end_effector)
-				arc(length - 0.1, 0, 0.13, 0.13, PI * -0.2, PI * 0.2);
-			else
-				arc(length, 0, 0.13, 0.13, PI * 0.8, PI * 1.2);			
-		}		
-		pop();
-	}	
+  draw() {
+    let segmentThickness = 0.07;   
+
+    push();
+    strokeWeight(0.012);
+
+    let mat = math.flatten(
+      math.transpose(
+        math.subset(this.parent.global_transform(), math.index([0, 1], [0, 1, 2]))
+      )
+    );
+    applyMatrix(mat);
+
+    let tip = math.flatten(math.subset(this._value, math.index([0, 1], 2)));
+    let length = math.norm(tip);
+
+    if (length > TINYNUMBER) {
+      let angle;
+      if (tip[0] > 0) angle = math.asin(tip[1] / length);
+      else           angle = PI - math.asin(tip[1] / length);
+      rotate(angle);
+
+      let isWing =
+        this.name.includes("upper_wing") || this.name.includes("lower_wing");
+
+      let fillCol, strokeCol;
+      if (isWing) {
+        fillCol   = this.name.includes("upper_wing") ? WING_FILL_1 : WING_FILL_2;
+        strokeCol = WING_OUTLINE;   // white edge for wings
+      } else {
+        fillCol   = BODY_FILL;
+        strokeCol = WING_OUTLINE;   // subtle light outline on body
+      }
+
+      rectMode(CENTER);
+      stroke(strokeCol);
+      fill(fillCol);
+
+      // center of segment, leave room near joints so circles from Hinge show nicely
+      let innerLength = max(0.02, length - 0.12);
+      let cx = length / 2;
+      let cy = 0;
+      rect(cx, cy, innerLength, segmentThickness, segmentThickness * 0.5);
+    }
+
+    pop();
+  }
+
 }
 
 class Translation extends Transformation {
@@ -148,26 +165,17 @@ class Hinge extends Transformation {
     this.dT = math.zeros([3, 3]);
   }
 
-  num_dofs() {
-    return 1;
-  }
+  num_dofs() { return 1; }
+  get_dof() { return this._theta; }
+  set_dof(value = 0.0) { this._theta = value; }
 
-  get_dof() {
-    return this._theta;
-  }
-
-  set_dof(value = 0.0) {
-    this._theta = value;
-  }
-
-    local_transform() {
+  local_transform() {
     let cth = math.cos(this._theta);
     let sth = math.sin(this._theta);
-
     this.T = [
       [cth, -sth, 0.0],
-      [sth, cth, 0.0],
-      [0.0, 0.0, 1.0],
+      [sth,  cth, 0.0],
+      [0.0,  0.0, 1.0],
     ];
     return this.T;
   }
@@ -175,27 +183,37 @@ class Hinge extends Transformation {
   local_derivative() {
     let cth = math.cos(this._theta);
     let sth = math.sin(this._theta);
-
     this.dT = [
       [-sth, -cth, 0.0],
-      [cth, -sth, 0.0],
-      [0.0, 0.0, 0.0],
+      [ cth, -sth, 0.0],
+      [ 0.0,  0.0, 0.0],
     ];
     return this.dT;
   }
-	
-	draw() {
-		push();
-		let origin = this.global_position();
-		strokeWeight(0.01);
-		stroke(PURPLE);	
-		noFill();
-		circle(origin[0], origin[1], 0.1);
-		fill(PURPLE);
-		circle(origin[0], origin[1], 0.05);
-		pop();		
-	}	
+
+  draw() {
+    push();
+    let origin = this.global_position();
+
+    const isWingJoint = this.name.includes("wing");
+    const baseRadius  = isWingJoint ? 0.12 : 0.10;
+    const innerRadius = isWingJoint ? 0.07 : 0.06;
+
+    // outer ring
+    stroke(isWingJoint ? WING_FILL_2 : JOINT_OUTLINE);
+    strokeWeight(0.013);
+    fill(JOINT_FILL);
+    circle(origin[0], origin[1], baseRadius);
+
+    // inner disc
+    noStroke();
+    fill(isWingJoint ? WING_FILL_1 : WING_OUTLINE);
+    circle(origin[0], origin[1], innerRadius);
+
+    pop();
+  }
 }
+
 
 class Point {
   constructor(mouse_x, mouse_y, tr) {
