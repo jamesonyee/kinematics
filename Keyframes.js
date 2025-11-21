@@ -17,19 +17,15 @@ class Keyframes {
 	
 	  for (let i = 0; i < this.keys.length; i++) {
 	    if (this.keys[i][0] >= time) {
-	
 	      if (this.keys[i][0] === time) {
 	        this.keys.splice(i, 1);
 	      }
-	
-	      // Insert new keyframe at position i
 	      this.keys.splice(i, 0, [time, pose]);
 	      inserted = true;
 	      break;
 	    }
 	  }
 	
-	  // If time is after all existing keys, append at the end
 	  if (!inserted) {
 	    this.keys.push([time, pose]);
 	  }
