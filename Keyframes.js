@@ -30,7 +30,6 @@ class Keyframes {
 	    this.interpolated_frames[i] = math.zeros([dof_list.length]);
 	  }
 	
-	  // Fill segments between keyframes
 	  for (let i = 0; i < this.keys.length - 1; i++) {
 	    let first_key  = this.keys[i];
 	    let second_key = this.keys[i + 1];
@@ -55,7 +54,6 @@ class Keyframes {
 	catmull_rom_interpolation() {
 	  if (this.keys.length < 2) return;
 	
-	  // Initialize frames
 	  this.interpolated_frames = [];
 	  for (let i = 0; i < NUM_OF_FRAMES; i++) {
 	    this.interpolated_frames[i] = math.zeros([dof_list.length]);
@@ -131,7 +129,6 @@ class Keyframes {
 	bspline_interpolation() {
 	  if (this.keys.length < 2) return;
 	
-	  // Initialize frames
 	  this.interpolated_frames = [];
 	  for (let i = 0; i < NUM_OF_FRAMES; i++) {
 	    this.interpolated_frames[i] = math.zeros([dof_list.length]);
@@ -211,7 +208,6 @@ class Keyframes {
 	    }
 	  }
 	}
-	
 		
 	draw_trajectory() {
 	  if (animating_joint_id >= 0) {
