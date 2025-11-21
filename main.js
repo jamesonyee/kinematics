@@ -33,6 +33,22 @@ let playing = false;
 
 let radioInterpolation;
 
+let bgImg;
+let bgMusic;
+let forestAmbience; 
+let buttonFlap;
+
+function preload() {
+  // Use the exact filenames you uploaded
+  bgImg = loadImage("forest_bg.jpg");
+
+  soundFormats('mp3', 'ogg');
+  bgMusic = loadSound("Butterfly.mp3");
+
+  // ambience layer
+  forestAmbience = loadSound("forest_ambience.mp3");
+}
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   x_offset_draw = windowWidth * 0.5;
@@ -57,7 +73,7 @@ function setup() {
 	
 	checkboxIK = createCheckbox("IK is on", true);
 	checkboxIK.position(50, 50);
-	checkboxIK.style('color', BLACK);
+	checkboxIK.style('color', GRAY);
 	
 	// Create the radio button for selecting interpolation methods
   radioInterpolation = createRadio();
@@ -66,33 +82,41 @@ function setup() {
   radioInterpolation.option('B-Spline', 'B-Spline');
   radioInterpolation.selected('Linear'); // Default selection
   radioInterpolation.position(50, 80); // Adjust position as needed
-  radioInterpolation.style('color', BLACK);
+  radioInterpolation.style('color', GRAY);
 	
 	buttonPlayStop = createButton('PLAY/STOP');
   buttonPlayStop.position(x_offset_draw - 30, 195);
 	buttonPlayStop.mousePressed(play_animation);
 	
+  buttonFlap = createButton("GENERATE FLAP CYCLE"); 
+  buttonFlap.position(50, 110);                      
+  buttonFlap.mousePressed(generateFlapCycle);        
+	
 	sliderTimeline = createSlider(0, NUM_OF_FRAMES - 1);
   sliderTimeline.position(x_offset_draw - 400, 170);
   sliderTimeline.size(800);
 	keyframes = new Keyframes();
-	
-	// noLoop();
-
 }
 
 function draw() {
   clear();
+
+	// BACKGROUND
+  if (bgImg) {
+    image(bgImg, 0, 0, width, height);  // stretch to full canvas
+  } else {
+    background(255);
+  }
+	
   translate(x_offset_draw, y_offset_draw);
   scale(g_s);
-  background(255);
 
   text_x = -x_offset_draw * 0.75 / g_s;
   text_y = -y_offset_draw * 0.9 / g_s;
 
   push();
-	stroke(BLACK);
-	fill(BLACK);
+	stroke(GRAY);
+	fill(GRAY);
 	strokeWeight(0.0001);
 	textSize(SMALL_TEXT_SIZE);
 
@@ -120,17 +144,47 @@ function draw() {
 	text("Create multiple keyframes to make an animation", text_x - 0.7, text_height);
 	text_height += 0.08;
 	text("Try different ways of interpolation using the radio buttons", text_x - 0.7, text_height);
-	
-
-	//text(`${key} : ${keyCode}`, text_x, text_y+ 0.3);
-  pop();
-	
+pop();
 	
 	
 	if(checkboxIK.checked()) {
 		update_q_from_transformations();
 		// TODO: STUDENT'S CODE STARTS
-        take_IK_step();
+		const maxIters = 50;
+		const learningRate = 0.1;
+		
+		for (let iter = 0; iter < maxIters; iter++) {
+			let grad = take_IK_step();
+			let totalSquaredError = 0.0;
+
+			for (let ikp of IK_points) {
+				let jointTransform = ikp.tr;
+				let localPoint = ikp.local_pos;
+	
+				let transformWorld = jointTransform.global_transform();
+				let worldPos = math.multiply(transformWorld, localPoint);
+				let tx = ikp.target_pos[0];
+				let ty = ikp.target_pos[1];
+				let px = worldPos[0];
+				let py = worldPos[1];
+				let dx = px - tx;
+				let dy = py - ty;
+				
+				let multx = dx * dx;
+				let multy = dy * dy;
+				totalSquaredError = totalSquaredError + (multx + multy);
+			}
+			
+			if (totalSquaredError < TINYNUMBER) {
+				break;
+			}			
+			let dofCount = q.length;
+			for (let iter = 0; iter < dofCount; iter++) {
+				let delta = learningRate * grad[iter];
+				q[iter] = q[iter] - delta;
+			}
+			set_joint_positions(q);
+		}
 		// STUDENT'S CODE ENDS
 	} else {
 		IK_points = [];
@@ -153,84 +207,130 @@ function draw() {
 	}
 	
 	if (playing) {
-		current_frame++;
-		if (current_frame == NUM_OF_FRAMES)
-			current_frame = 0;
-		sliderTimeline.value(current_frame);
-		q = keyframes.interpolated_frames[sliderTimeline.value()];
-		set_joint_positions(q);
+	  current_frame++;
+	  if (current_frame == NUM_OF_FRAMES)
+	    current_frame = 0;
+	  sliderTimeline.value(current_frame);
+	
+	  q = keyframes.interpolated_frames[sliderTimeline.value()];
+	  if (q) {
+	    apply_wing_symmetry_to_q(q);   // NEW
+	    set_joint_positions(q);
+	  }
 	}
-  
+
 }
 
 function setup_character() {
-  // Reset the data structure
+  // Reset the data structures
   transform_list = [];
   name_to_transform = {};
   dof_list = [];
 
-	// TODO: Please copy your code from P1 if you designed a new character 
-  // Define the character
+  // ==========================
+  // Root: butterfly center of mass
+  // ==========================
   let base = new Translation("base_x", "x")
     .add(new Translation("base_y", "y"))
-    .add(new Hinge("base_r"));
+    .add(new Hinge("base_r"));          // rotate whole butterfly
 
-  let torso = base.add(new Fixed(`root_to_torso`, 0, -0.25)).add(new Hinge(`spine`));
-	
-  torso.add(new Fixed(`torso_to_head`, 0, -0.3, 1));
+  // Body (thorax/abdomen) with its own hinge
+  let body = base
+    .add(new Fixed("root_to_body", 0.0, 0.0))
+    .add(new Hinge("body_r"));          // bend / tilt body
 
-  ["l", "r"].forEach((d) => {
-    let sx = d === "l" ? 1.0 : -1.0;
-    torso
-      .add(new Fixed(`${d}_torso_to_shoulder`, sx * 0.15, -0.15))
-      .add(new Hinge(`j_${d}_shoulder`))
-      .add(new Fixed(`${d}_upperarm`, sx * 0.3, 0.0))
-      .add(new Hinge(`j_${d}_elbow`))
-      .add(new Fixed(`${d}_lowerarm`, sx * 0.3, 0.0))
-			.add(new Hinge(`j_${d}_wrist`))
-      .add(new Fixed(`${d}_hand`, sx * 0.15, 0.0, 1));
+  // Central body segment
+  body.add(new Fixed("body_segment", 0.0, -0.4));
+
+  // ==========================
+  // Head and antennae
+  // ==========================
+  let head = body
+    .add(new Fixed("body_to_head", 0.0, -0.55))
+    .add(new Fixed("head", 0.0, -0.15, 1));  // head as end-effector
+
+  ["l", "r"].forEach((side) => {
+    let sx = side === "l" ? -1.0 : 1.0;
+
+    head
+      .add(new Fixed(`${side}_ant_base_offset`, sx * 0.12, -0.10))
+      .add(new Hinge(`j_${side}_ant_base`))
+      .add(new Fixed(`${side}_ant_tip`, sx * 0.25, -0.20, 1));
   });
 
-  ["l", "r"].forEach((d) => {
-    let sx = d === "l" ? 1.0 : -1.0;
-    base
-      .add(new Fixed(`${d}_root_to_hip`, sx * 0.1, 0.2))
-      .add(new Hinge(`j_${d}_hip`))
-      .add(new Fixed(`${d}_upperleg`, 0.0, 0.4))
-      .add(new Hinge(`j_${d}_knee`))
-      .add(new Fixed(`${d}_lowerleg`, 0.0, 0.4))
-			.add(new Hinge(`j_${d}ankle`))
-      .add(new Fixed(`${d}_foot`, 0.0, 0.15, 1));
+  // ==========================
+  // Upper wings
+  // ==========================
+  ["l", "r"].forEach((side) => {
+    let sx = side === "l" ? -1.0 : 1.0;
+
+    body
+      .add(new Fixed(`${side}_upper_wing_offset`, sx * 0.22, -0.15))
+      .add(new Hinge(`j_${side}_upper_wing_root`))          // hinge 1
+      .add(new Fixed(`${side}_upper_wing_mid`, sx * 0.55, -0.10))
+      .add(new Hinge(`j_${side}_upper_wing_mid`))           // hinge 2
+      .add(new Fixed(`${side}_upper_wing_tip`, sx * 0.55, -0.10, 1));
   });
 
+  // ==========================
+  // Lower wings
+  // ==========================
+  ["l", "r"].forEach((side) => {
+    let sx = side === "l" ? -1.0 : 1.0;
+
+    body
+      .add(new Fixed(`${side}_lower_wing_offset`, sx * 0.18, 0.05))
+      .add(new Hinge(`j_${side}_lower_wing_root`))          // hinge 1
+      .add(new Fixed(`${side}_lower_wing_mid`, sx * 0.50, 0.18))
+      .add(new Hinge(`j_${side}_lower_wing_mid`))           // hinge 2
+      .add(new Fixed(`${side}_lower_wing_tip`, sx * 0.50, 0.18, 1));
+  });
+
+  // ==========================
+  // Tail (little glowing tail / comet trail)
+  // ==========================
+  body
+    .add(new Fixed("tail_offset", 0.0, 0.35))
+    .add(new Hinge("j_tail_base"))
+    .add(new Fixed("tail_mid", 0.0, 0.30))
+    .add(new Hinge("j_tail_mid"))
+    .add(new Fixed("tail_tip", 0.0, 0.30, 1));  // end-effector
+
+  // ==========================
   // Build auxiliary data structures
+  // ==========================
   transform_list.forEach((tr) => {
     name_to_transform[tr.name] = tr;
     if (tr.num_dofs() > 0) {
       dof_list.push(tr);
     }
   });
-	
-	// Build dependent dofs
+
   transform_list.forEach((tr) => {
     tr.dependent_dofs = tr.parent ? new Set(tr.parent.dependent_dofs) : new Set();
     if (tr.num_dofs() > 0) {
       tr.dependent_dofs.add(tr);
     }
   });
-
 }
 
 function draw_character() {
-	if(current_frame != sliderTimeline.value()){
-		q = keyframes.interpolated_frames[sliderTimeline.value()];
-		set_joint_positions(q);
-		current_frame = sliderTimeline.value();
-	}
-	transform_list.forEach((tr) => {
-		tr.draw()
+  if (current_frame != sliderTimeline.value()) {
+    q = keyframes.interpolated_frames[sliderTimeline.value()];
+
+    if (q) {
+      apply_wing_symmetry_to_q(q);   // NEW: enforce mirrored wings
+      set_joint_positions(q);
+      current_frame = sliderTimeline.value();
+    }
+  }
+
+  transform_list.forEach((tr) => {
+    tr.draw();
   });
 }
+
+
 
 function draw_annotations() {
 	  if (selected_joint_id >= 0) {
@@ -322,11 +422,6 @@ function keyPressed() {
 	
 		
 	} 
-	// For single step debug 
-	// if (key === ' ') {  // Spacebar key press will trigger draw
-	// loop();           // Start the draw loop
-	// noLoop();         // Immediately stop it after one execution
-	// }
 }
 
 function mousePressed() {
@@ -431,10 +526,88 @@ function update_q_from_transformations() {
   }
 }
 
+function get_dof_index_by_name(name) {
+  for (let i = 0; i < dof_list.length; i++) {
+    if (dof_list[i].name === name) return i;
+  }
+  return -1;
+}
+
+function generateFlapCycle() {
+  // Clear existing keyframes
+  keyframes.keys = [];
+
+  current_frame = 0;
+  sliderTimeline.value(0);
+
+  let amplitude = 0.8;   // how wide the wings flap
+  let period = 80;       // frames per full flap cycle
+
+  for (let t = 0; t < NUM_OF_FRAMES; t++) {
+    // Start from the current q as a base pose
+    let pose = [...q];
+
+    let flap = amplitude * Math.sin((2 * Math.PI * t) / period);
+
+    // Helper to set a joint in this pose
+    function setJoint(name, value) {
+      let idx = get_dof_index_by_name(name);
+      if (idx >= 0) pose[idx] = value;
+    }
+
+    // Right wing = driver
+    setJoint("j_r_upper_wing_root", flap);
+    setJoint("j_r_upper_wing_mid",  -flap * 0.5);
+    setJoint("j_r_lower_wing_root", flap * 0.8);
+    setJoint("j_r_lower_wing_mid",  -flap * 0.3);
+
+    // Mirror to left side
+    apply_wing_symmetry_to_q(pose);
+
+    // Save keyframe at time t
+    keyframes.add_keyframe(t, pose);
+  }
+
+  // Optionally pre-fill with linear interpolation once;
+  // during draw() you still run the selected interpolation type.
+  keyframes.linear_interpolation();
+}
+
+function apply_wing_symmetry_to_q(qVec) {
+  if (!qVec) return;
+
+  let pairs = [
+    ["j_r_upper_wing_root", "j_l_upper_wing_root"],
+    ["j_r_upper_wing_mid",  "j_l_upper_wing_mid"],
+    ["j_r_lower_wing_root", "j_l_lower_wing_root"],
+    ["j_r_lower_wing_mid",  "j_l_lower_wing_mid"]
+  ];
+
+  pairs.forEach(([rightName, leftName]) => {
+    let ri = get_dof_index_by_name(rightName);
+    let li = get_dof_index_by_name(leftName);
+    if (ri >= 0 && li >= 0 && qVec[ri] !== undefined) {
+      qVec[li] = -qVec[ri];  // mirror
+    }
+  });
+}
+
 function play_animation() {
-	if (playing) {
-		playing = false;
-	} else { 
-		playing = true;		
-	}
+  playing = !playing;
+
+  if (playing) {
+    if (bgMusic && !bgMusic.isPlaying()) {
+      bgMusic.loop();
+    }
+     if (forestAmbience && !forestAmbience.isPlaying()) {
+       forestAmbience.loop();
+     }
+  } else {
+    if (bgMusic && bgMusic.isPlaying()) {
+      bgMusic.pause();
+    }
+     if (forestAmbience && forestAmbience.isPlaying()) {
+       forestAmbience.pause();
+     }
+  }
 }
