@@ -394,10 +394,10 @@ function keyPressed() {
 		keyframes.add_keyframe(time, pose);
 	}
 	if (key === 's' || key === 'S') {
-	    print("Saving frames...");
-	    saveFrames('butterfly_frame_', 'png', 1, 30, function(data) {
-	        print("Done saving frames!");
-	    });
+	  playing = true;
+	
+	  print("Saving GIF...");
+	  saveGif('butterfly_animation.gif', 1);   
 	}
 }
 
