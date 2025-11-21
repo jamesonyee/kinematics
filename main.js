@@ -284,11 +284,13 @@ function draw() {
     background(255);
   }
 	drawAmbientCreatures();
+	drawBodyGlow();          
 	updateSliderVisuals();   // keep the DOM track in sync with Ana's speed
 	drawFlightSpeedLabel();
 	
 	// Cute name tag for Ana the Butterfly
 	drawButterflyNameplate();
+	drawRigHint();
 	translate(x_offset_draw, y_offset_draw);
 	scale(g_s);
 	
@@ -337,7 +339,8 @@ function draw() {
 	} else {
 		IK_points = [];
 	}
-	
+
+   drawCharacterWingsOverlay();
    draw_character();
 	draw_annotations();
 	draw_keyframe_animation();
@@ -467,30 +470,39 @@ function draw_character() {
 }
 
 function draw_annotations() {
-	  if (selected_joint_id >= 0) {
-			let pos = dof_list[selected_joint_id].global_position();
-	    push();
-			stroke(GREEN);
-		  strokeWeight(0.01);
-			fill(GREEN);
-    	circle(pos[0], pos[1], 0.05);
+  for (let i = 0; i < dof_list.length; i++) {
+    let pos = dof_list[i].global_position();
+    push();
+    stroke(JOINT_OUTLINE);     
+    strokeWeight(0.035);       
+    fill(JOINT_FILL);          
+    circle(pos[0], pos[1], 0.09);
+    pop();
+  }
 
-    	pop();
-  	}
-			IK_points.forEach((p) => {
-				p.draw();
-				p.draw_target();
-			});
-	
-		if (animating_joint_id >= 0) {
-			let pos = dof_list[animating_joint_id].global_position();
-			push();
-			stroke(ORANGE);
-		  strokeWeight(0.01);
-			noFill();
-    	circle(pos[0], pos[1], 0.1);
-			pop();
-		}
+  if (selected_joint_id >= 0) {
+    let pos = dof_list[selected_joint_id].global_position();
+    push();
+    stroke(GREEN);
+    strokeWeight(0.02);
+    noFill();
+    circle(pos[0], pos[1], 0.12);
+    pop();
+  }
+
+  IK_points.forEach((p) => {
+    p.draw();
+    p.draw_target();
+  });
+  if (animating_joint_id >= 0) {
+    let pos = dof_list[animating_joint_id].global_position();
+    push();
+    stroke(ORANGE);
+    strokeWeight(0.02);
+    noFill();
+    circle(pos[0], pos[1], 0.14);
+    pop();
+  }
 }
 
 function draw_keyframe_animation() {
@@ -681,6 +693,7 @@ function drawButterflyNameplate() {
   let paddingX   = 24;
   let paddingY   = 12;
   let cardWidth  = max(mainWidth, subWidth) + paddingX * 2;
+	
   let cardHeight = mainSize + subSize + paddingY * 3;
   let floatX = cos(frameCount * 0.017) * 7;
   let floatY = sin(frameCount * 0.022) * 6;
@@ -1228,5 +1241,114 @@ function drawFireflyButterfly(fx, fy, size, phase) {
   ellipse(bodyLen * 0.38, 0, bodyWidth * 1.05, bodyWidth * 1.05);
   fill(255, 235, 250, 140);
   ellipse(bodyLen * 0.38, 0, bodyWidth * 0.55, bodyWidth * 0.55);
+  pop();
+}
+
+function drawCharacterWingsOverlay() {
+  push();
+  noStroke();
+  let speedNorm = 0.0;
+  if (sliderSpeed) {
+    let raw    = sliderSpeed.value();
+    let minRaw = Number(sliderSpeed.elt.min || 25);
+    let maxRaw = Number(sliderSpeed.elt.max || 400);
+    speedNorm  = constrain((raw - minRaw) / (maxRaw - minRaw), 0, 1);
+  }
+
+  let t     = frameCount * 0.03;
+  let puff  = 0.04 * sin(t);
+  let alphaUpper = lerp(40, 75, speedNorm);
+  let alphaLower = lerp(32, 65, speedNorm);
+  let cUpper = color(
+    red(WING_FILL_1),
+    green(WING_FILL_1),
+    blue(WING_FILL_1),
+    alphaUpper
+  );
+  let cLower = color(
+    red(WING_FILL_2),
+    green(WING_FILL_2),
+    blue(WING_FILL_2),
+    alphaLower
+  );
+
+  // Upper wings
+  fill(cUpper);
+  ellipse(-0.80, -0.08 + puff, 1.35, 0.95); // left upper
+  ellipse( 0.80, -0.08 + puff, 1.35, 0.95); // right upper
+
+  // Lower wings
+  fill(cLower);
+  ellipse(-0.70, 0.18 - puff * 0.7, 1.20, 0.82); // left lower
+  ellipse( 0.70, 0.18 - puff * 0.7, 1.20, 0.82); // right lower
+
+  let spotColor = color(
+    red(WING_FILL_1),
+    green(WING_FILL_1),
+    blue(WING_FILL_1),
+    45
+  );
+  noStroke();
+  fill(spotColor);
+  let spots = [
+    [-0.48, -0.05, 0.10, 0.07],
+    [-0.32,  0.06, 0.08, 0.06],
+    [ 0.35, -0.03, 0.09, 0.07],
+    [ 0.52,  0.08, 0.08, 0.06]
+  ];
+  for (let s of spots) {
+    ellipse(s[0], s[1], s[2], s[3]);
+  }
+  pop();
+}
+
+function drawBodyGlow() {
+  push();
+  let cx = x_offset_draw;
+  let cy = y_offset_draw + 40;
+  let speedNorm = 0.0;
+  if (sliderSpeed) {
+    let raw    = sliderSpeed.value();
+    let minRaw = Number(sliderSpeed.elt.min || 25);
+    let maxRaw = Number(sliderSpeed.elt.max || 400);
+    speedNorm  = constrain((raw - minRaw) / (maxRaw - minRaw), 0, 1);
+  }
+
+  let t    = frameCount * 0.03;
+  let base = 110;
+  let r    = base + 10 * sin(t);
+  let alpha = lerp(25, 70, speedNorm);
+  noStroke();
+  fill(red(WING_FILL_1), green(WING_FILL_1), blue(WING_FILL_1), alpha);
+  ellipse(cx, cy, r * 2, r * 1.2);
+  pop();
+}
+
+function drawRigHint() {
+  push();
+  rectMode(CENTER);
+  textAlign(CENTER, CENTER);
+  const msg = "Tip: drag the white joints to pose Ana  •  Shift+click a joint to add / remove IK targets";
+  textSize(11);
+  const cx = width / 2;
+  const cy = height - 24;   
+
+  const paddingX = 32;      // horizontal padding
+  const paddingY = 8;       // vertical padding
+  const w = textWidth(msg) + paddingX;
+  const h = 18 + paddingY;
+  noStroke();
+  fill(0, 0, 0, 120);
+  rect(cx + 2, cy + 2, w, h, 999);
+  fill(40, 0, 40, 150);
+  rect(cx, cy, w, h, 999);
+  noFill();
+  stroke(255, 160, 240, 220);
+  strokeWeight(1.5);
+  rect(cx, cy, w - 2, h - 2, 999);
+
+  noStroke();
+  fill(255, 245, 255, 235);
+  text(msg, cx, cy + 1);
   pop();
 }
