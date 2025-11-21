@@ -572,7 +572,7 @@ function keyPressed() {
 	  playing = true;
 	
 	  print("Saving GIF...");
-	  saveGif('butterfly_animation.gif', 3);   // change number of seconds for animation
+	  saveGif('butterfly_animation.gif', 5);   // change number of seconds for animation
 	}
 }
 
