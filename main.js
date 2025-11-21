@@ -476,8 +476,10 @@ function get_dof_index_by_name(name) {
 }
 
 function generateFlapCycle() {
+  // Clear existing keyframes
   keyframes.keys = [];
 
+  // Start from frame 0
   current_frame = 0;
   sliderTimeline.value(0);
 
@@ -485,11 +487,11 @@ function generateFlapCycle() {
   let period = 80;       // frames per full flap cycle
 
   for (let t = 0; t < NUM_OF_FRAMES; t++) {
+    // Start from the current q as a base pose
     let pose = [...q];
 
     let flap = amplitude * Math.sin((2 * Math.PI * t) / period);
 
-    // Helper to set a joint in this pose
     function setJoint(name, value) {
       let idx = get_dof_index_by_name(name);
       if (idx >= 0) pose[idx] = value;
@@ -504,11 +506,19 @@ function generateFlapCycle() {
     // Mirror to left side
     apply_wing_symmetry_to_q(pose);
 
-    // Save keyframe at time t
     keyframes.add_keyframe(t, pose);
   }
 
+  // Rebuild the interpolated frames (default to linear)
   keyframes.linear_interpolation();
+
+  let pose0 = keyframes.interpolated_frames[0];
+  if (pose0) {
+    apply_wing_symmetry_to_q(pose0);
+    set_joint_positions(pose0);
+  }
+
+  playing = true;
 }
 
 function apply_wing_symmetry_to_q(qVec) {
