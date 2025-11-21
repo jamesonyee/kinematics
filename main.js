@@ -471,11 +471,14 @@ function draw_character() {
 
 function draw_annotations() {
   for (let i = 0; i < dof_list.length; i++) {
-    let pos = dof_list[i].global_position();
+    let j = dof_list[i];
+
+    if (!(j instanceof Hinge)) continue;
+    let pos = j.global_position();
     push();
-    stroke(JOINT_OUTLINE);     
-    strokeWeight(0.035);       
-    fill(JOINT_FILL);          
+    stroke(JOINT_OUTLINE);
+    strokeWeight(0.035);
+    fill(JOINT_FILL);
     circle(pos[0], pos[1], 0.09);
     pop();
   }
@@ -491,7 +494,6 @@ function draw_annotations() {
   }
 
   IK_points.forEach((p) => {
-    p.draw();
     p.draw_target();
   });
   if (animating_joint_id >= 0) {
