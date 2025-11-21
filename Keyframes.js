@@ -136,43 +136,77 @@ class Keyframes {
 	  for (let i = 0; i < NUM_OF_FRAMES; i++) {
 	    this.interpolated_frames[i] = math.zeros([dof_list.length]);
 	  }
+		
+		let paddedKeys = [];
+		let firstKey = this.keys[0];
+		let lastKey  = this.keys[this.keys.length - 1];
+		paddedKeys.push(firstKey);
+		paddedKeys.push(firstKey);
+		for (let kIdx = 0; kIdx < this.keys.length; kIdx++) {
+		  paddedKeys.push(this.keys[kIdx]);
+		}
+		paddedKeys.push(lastKey);
+		paddedKeys.push(lastKey);
 	
-	  let keys = [
-	    this.keys[0], this.keys[0],
-	    ...this.keys,
-	    this.keys[this.keys.length - 1], this.keys[this.keys.length - 1]
-	  ];
-	
-	  for (let i = 0; i < this.keys.length - 1; i++) {
-	    let p0 = keys[i][1];
-	    let p1 = keys[i + 1][1];
-	    let p2 = keys[i + 2][1];
-	    let p3 = keys[i + 3][1];
-	
-	    let t_start = this.keys[i][0];
-	    let t_end   = this.keys[i + 1][0];
-	    let duration = t_end - t_start;
-	    if (duration <= 0) continue;
-	
-	    for (let t = 0; t <= duration; t++) {
-	      let u  = t / duration;
-	      let u2 = u * u;
-	      let u3 = u2 * u;
-	
-	      let b0 = (1 - u) ** 3 / 6;
-	      let b1 = (3 * u3 - 6 * u2 + 4) / 6;
-	      let b2 = (-3 * u3 + 3 * u2 + 3 * u + 1) / 6;
-	      let b3 = u3 / 6;
-	
+	  for (let iter = 0; iter < this.keys.length - 1; iter++) {
+		  let baseIndex = iter;
+		  let posePrev = paddedKeys[baseIndex][1];
+		  let poseStart = paddedKeys[baseIndex + 1][1];
+		  let poseNext = paddedKeys[baseIndex + 2][1];
+		  let poseFuture = paddedKeys[baseIndex + 3][1];
+		  let tBegin = this.keys[iter][0];
+		  let tEnd   = this.keys[iter + 1][0];
+		  let span = tEnd - tBegin;
+		  if (span <= 0) {
+		    continue;
+		  }
+					  
+	    for (let step = 0; step <= span; step++) {
+	      let u  = step / span;
+			let jointCount = poseStart.length;
+	      let uSquared = u * u;
+	      let uCubed = u * u * u;
+
+			let invU = 1 - u;
+			let invUSquared = invU * invU;
+			let invUCubed = invUSquared * invU;
+			let basis0 = invUCubed / 6;
+
+			let tmp1_base1 = 3 * uCubed;
+			let tmp2_base1 = 6 * uSquared;
+			let basis1_num = tmp1_base1 - tmp2_base1 + 4;
+	      let basis1 = basis1_num / 6;
+
+			let tmp1_base2 = -3 * uCubed;
+			let tmp2_base2 = 3 * uSquared;
+			let tmp3_base2 = 3 * u;
+			let basis2_num = tmp1_base2 + tmp2_base2 + tmp3_base2 + 1;
+			let basis2 = basis2_num / 6;
+			
+	      let basis3 = uCubed / 6;
+
 	      let frame = [];
-	      for (let k = 0; k < p1.length; k++) {
-	        let val = b0 * p0[k] + b1 * p1[k] + b2 * p2[k] + b3 * p3[k];
-	        frame.push(val);
+	      for (let idx = 0; idx < jointCount; idx++) {
+			  let vPrev   = posePrev[idx];
+			  let vStart  = poseStart[idx];
+			  let vNext   = poseNext[idx];
+			  let vFuture = poseFuture[idx];
+			
+			  let term0 = basis0 * vPrev;
+			  let term1 = basis1 * vStart;
+			  let term2 = basis2 * vNext;
+			  let term3 = basis3 * vFuture;
+			
+			  let value = term0 + term1 + term2 + term3;
+			  frame.push(value);
 	      }
-	
-	      let idx = t_start + t;
-	      if (idx >= 0 && idx < NUM_OF_FRAMES) {
-	        this.interpolated_frames[idx] = frame;
+
+			let frameIndex = tBegin + step;		
+			let withinLower = frameIndex >= 0;
+			let withinUpper = frameIndex < NUM_OF_FRAMES;
+			
+			if (withinLower && withinUpper) {
+	        this.interpolated_frames[frameIndex] = frame;
 	      }
 	    }
 	  }
