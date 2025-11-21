@@ -4,7 +4,7 @@
 const TINYNUMBER = 0.000001;
 const TEXT_SIZE = 0.08;
 const SMALL_TEXT_SIZE = 0.04;
-const NUM_OF_FRAMES = 1000;
+const NUM_OF_FRAMES = 1000; // change for animation rendering
 
 let transform_list = [];    // List of all the Transformation objects
 let name_to_transform = {};   // Map from name to Transformation object
@@ -397,7 +397,7 @@ function keyPressed() {
 	  playing = true;
 	
 	  print("Saving GIF...");
-	  saveGif('butterfly_animation.gif', 1);   
+	  saveGif('butterfly_animation.gif', 3);   // change number of seconds for animation
 	}
 }
 
