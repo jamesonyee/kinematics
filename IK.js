@@ -1,40 +1,40 @@
 // STUDENT'S CODE STARTS
-
 function take_IK_step() {
-  // return the gradient of the IK residual, a 1d array of length ndofs
-	// TODO: STUDENT'S CODE STARTS
-	// Please copy your code from P1
-	let ndofs = dof_list.length;
+	let dofCount = dof_list.length;
 	let g = math.zeros([q.length]);
 
+	for (let pt of IK_points) {
+		let trObj = pt.tr;
+		let worldTransform = trObj.global_transform();
+		let localPoint = pt.local_pos;
+		let worldPoint = math.multiply(worldTransform, localPoint);
+		
+		let px = worldPoint[0];
+		let py = worldPoint[1];
+		let targetX = pt.target_pos[0];
+		let targetY = pt.target_pos[1];
+		
+		let offsetx = px - targetX;
+		let offsety = py - targetY;
+		let J = compute_jacobian(pt);	
 	
-	for (let p0 of IK_points) {
-		let M = p0.tr.global_transform();
-		let p = math.multiply(M, p0.local_pos);   
-	
-		let cx = p[0] - p0.target_pos[0];
-		let cy = p[1] - p0.target_pos[1];
-	
-	
-		let J = compute_jacobian(p0);
-	
-	
-		for (let i = 0; i < ndofs; i++) {
-			let dcdx = J[0][i];
-			let dcdy = J[1][i];
-			g[i] += 2 * (dcdx * cx + dcdy * cy);
+		for (let iter = 0; iter < dofCount; iter++) {
+			let dcdx = J[0][iter];
+			let dcdy = J[1][iter];
+			let contribX = dcdx * offsetx;
+			let contribY = dcdy * offsety;
+			let combinedGrad = contribX + contribY;
+			let scaledGrad = 2 * combinedGrad;
+			g[iter] = g[iter] + scaledGrad;	
 		}
 	}
- 
-	// STUDENT'S CODE ENDS
-	
+
   return g;
 }
 
 function compute_jacobian(body_point) {
-  // return the Jacobian matrix, a 2xN matrix
-	let ndofs = dof_list.length;
-	let J = math.zeros([2, ndofs]);
+	let dofCount = dof_list.length;
+	let J = math.zeros([2, dofCount]);
 
 	let tr = body_point.tr;
 	let p0 = body_point.local_pos;   
@@ -48,7 +48,7 @@ function compute_jacobian(body_point) {
 	}
 	
 
-	for (let i = 0; i < ndofs; i++) {
+	for (let i = 0; i < dofCount; i++) {
 		let joint = dof_list[i];
 
 		
@@ -85,4 +85,3 @@ function compute_jacobian(body_point) {
 	
   return J;
 }
-// STUDENT'S CODE ENDS
