@@ -28,60 +28,60 @@ function take_IK_step() {
 			g[iter] = g[iter] + scaledGrad;	
 		}
 	}
-
   return g;
 }
 
 function compute_jacobian(body_point) {
 	let dofCount = dof_list.length;
 	let J = math.zeros([2, dofCount]);
+	let trNode = body_point.tr;
+	let localPoint = body_point.local_pos;   
+	let path = buildPathFromRootTo(trNode);
 
-	let tr = body_point.tr;
-	let p0 = body_point.local_pos;   
-
-
-	let chain = [];
-	let node = tr;
-	while (node !== null) {
-		chain.unshift(node);
-		node = node.parent;
-	}
-	
-
-	for (let i = 0; i < dofCount; i++) {
-		let joint = dof_list[i];
-
-		
-		if (!tr.dependent_dofs.has(joint)) continue;
-
-		
-		let jIndex = chain.indexOf(joint);
-		if (jIndex < 0) continue;
-
-		
-		let T_left = math.identity([3]);
-		for (let k = 0; k < jIndex; k++) {
-			T_left = math.multiply(T_left, chain[k].local_transform());
+	for (let iter = 0; iter < dofCount; iter++) {
+		let elem = dof_list[iter];
+		if (!trNode.dependent_dofs.has(elem)) {
+			continue;
+		}
+		let elemId = path.indexOf(elem);
+		if (elemId < 0) {
+			continue;
+		}
+		let preTransform = math.identity([3]);
+		let postTransform = math.identity([3]);
+		for (let iter = 0; iter < elemId; iter++) {
+			let currentSegment = path[iter];
+			let segTransform = currentSegment.local_transform();
+			let updatedTransform = math.multiply(preTransform, segTransform);
+			preTransform = updatedTransform;
 		}
 
-		
-		let dT = joint.local_derivative();
-
-		
-		let T_right = math.identity([3]);
-		for (let k = jIndex + 1; k < chain.length; k++) {
-			T_right = math.multiply(T_right, chain[k].local_transform());
+		let deriv = elem.local_derivative();
+		let startIndex = elemId + 1;
+		let endIndex = path.length;
+		for (let iter = startIndex; iter < endIndex; iter++) {
+			let segment = path[iter];
+			let segT = segment.local_transform();
+			postTransform = math.multiply(postTransform, segT);
 		}
+		let firstStep = math.multiply(preTransform, deriv);
+		let secondStep = math.multiply(firstStep, postTransform);
+		let thirdStep = math.multiply(secondStep, localPoint);
+		let dpos = thirdStep;
 
-		
-		let dT_global = math.multiply(math.multiply(T_left, dT), T_right);
-		
-	
-		let dpos = math.multiply(dT_global, p0);
-
-		J[0][i] = dpos[0]; 
-		J[1][i] = dpos[1];
+		J[0][iter] = dpos[0]; 
+		J[1][iter] = dpos[1];
   } 
-	
   return J;
+}
+
+function buildPathFromRootTo(node) {
+  let path = [];
+  let ptr = node;
+  while (ptr) {
+    path.unshift(ptr);
+    let parentNode = ptr.parent;
+    ptr = parentNode;
+  }
+  return path;
 }
