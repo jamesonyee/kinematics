@@ -12,6 +12,14 @@ let dof_list = [];    // List of all the Transformation objects with non-zero de
 let q;  // List of DoF values (translation and hinge), N-array, same length as dof_list since we only have 1-dof Transformations
 let IK_points = []; // List of current IK points created by UI 
 
+// Butterfly style colors 
+let WING_FILL_1;
+let WING_FILL_2;
+let WING_OUTLINE;
+let BODY_FILL;
+let JOINT_FILL;
+let JOINT_OUTLINE;
+
 let checkboxIK;
 let sliderTimeline;
 let buttonPlayStop;
@@ -63,7 +71,15 @@ function setup() {
 	PURPLE  = color("rgb(128,10,128)");
 	BLACK = color("rgb(0,0,0)");
 	GRAY = color("rgb(200,200,200)");
-	
+  
+	// Pretty butterfly palette
+	WING_FILL_1  = color(255, 120, 215, 150);  // slightly stronger pink
+	WING_FILL_2  = color(255, 190,  70, 160);  // richer gold
+	WING_OUTLINE = color(255);                 // bright white
+	BODY_FILL    = color(35, 18, 10);          // a bit darker
+	JOINT_FILL   = color(250);                 // almost white
+	JOINT_OUTLINE= color(10);                  // near-black
+
   setup_character();
 
   // Initialize joint positions
