@@ -37,6 +37,9 @@ let bgMusic;
 let forestAmbience; 
 let buttonFlap;
 
+let sliderSpeed;
+let playSpeed = 1.0;  // 1.0 = normal speed
+
 function preload() {
   bgImg = loadImage("forest_bg.jpg");
   soundFormats('mp3', 'ogg');
@@ -82,7 +85,7 @@ function setup() {
   radioInterpolation.style('color', GRAY);
 	
 	buttonPlayStop = createButton('PLAY/STOP');
-  buttonPlayStop.position(x_offset_draw - 30, 195);
+	buttonPlayStop.position(x_offset_draw - 30, 195);
 	buttonPlayStop.mousePressed(play_animation);
 	
   buttonFlap = createButton("GENERATE FLAP CYCLE"); 
@@ -92,6 +95,11 @@ function setup() {
 	sliderTimeline = createSlider(0, NUM_OF_FRAMES - 1);
   sliderTimeline.position(x_offset_draw - 400, 170);
   sliderTimeline.size(800);
+
+	sliderSpeed = createSlider(25, 400, 100, 25);
+	sliderSpeed.position(50, 220);   // directly under the label
+	sliderSpeed.style('width', '200px');
+
 	keyframes = new Keyframes();
 }
 
@@ -103,13 +111,29 @@ function draw() {
   } else {
     background(255);
   }
-	
+
+  push();
+  rectMode(CENTER);
+
+  let labelX = 150;   // horizontally over the slider (50 + 200/2)
+  let labelY = 205;   // moved a bit down, just above the slider
+
+  noStroke();
+  fill(255, 255, 255, 230);   // almost opaque white
+  rect(labelX, labelY, 130, 26, 13);   // wider + more rounded
+
+  fill(40, 25, 10);
+  textAlign(CENTER, CENTER);
+  textSize(14);
+  text("Flight speed", labelX, labelY);
+  pop();
+
   translate(x_offset_draw, y_offset_draw);
   scale(g_s);
 
   text_x = -x_offset_draw * 0.75 / g_s;
   text_y = -y_offset_draw * 0.9 / g_s;
-	
+
 	if(checkboxIK.checked()) {
 		update_q_from_transformations();
 		// TODO: STUDENT'S CODE STARTS
@@ -157,10 +181,9 @@ function draw() {
 	draw_annotations();
 	draw_keyframe_animation();
 	
-	// Get the selected interpolation method
 	let interpolationMethod = radioInterpolation.value();
 
-	// Perform interpolation based on the selected method
+	// interpolation based on the selected method
 	if (interpolationMethod === 'Linear') {
 		keyframes.linear_interpolation();
 	} else if (interpolationMethod === 'Catmull-Rom') {
@@ -169,18 +192,27 @@ function draw() {
 		keyframes.bspline_interpolation();
 	}
 	
-	if (playing) {
-	  current_frame++;
-	  if (current_frame == NUM_OF_FRAMES)
-	    current_frame = 0;
-	  sliderTimeline.value(current_frame);
-	
-	  q = keyframes.interpolated_frames[sliderTimeline.value()];
-	  if (q) {
-	    apply_wing_symmetry_to_q(q);  
-	    set_joint_positions(q);
-	  }
-	}
+  if (playing) {
+    // 0.25x ... 4.0x speed
+    playSpeed = sliderSpeed.value() / 100.0;
+
+    current_frame += playSpeed;
+
+    if (current_frame >= NUM_OF_FRAMES) {
+      current_frame = current_frame % NUM_OF_FRAMES;
+    } else if (current_frame < 0) {
+      current_frame += NUM_OF_FRAMES;
+    }
+
+    let frameIndex = Math.floor(current_frame);
+    sliderTimeline.value(frameIndex);
+
+    let pose = keyframes.interpolated_frames[frameIndex];
+    if (pose) {
+      apply_wing_symmetry_to_q(pose);
+      set_joint_positions(pose);
+    }
+  }
 
 }
 
