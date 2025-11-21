@@ -12,7 +12,7 @@ let dof_list = [];    // List of all the Transformation objects with non-zero de
 let q;  // List of DoF values (translation and hinge), N-array, same length as dof_list since we only have 1-dof Transformations
 let IK_points = []; // List of current IK points created by UI 
 
-// Butterfly style colors 
+// Butterfly colors 
 let WING_FILL_1;
 let WING_FILL_2;
 let WING_OUTLINE;
@@ -50,6 +50,8 @@ let buttonFlap;
 
 let sliderSpeed;
 let playSpeed = 1.0;  // 1.0 = normal speed
+let fireflies = [];
+let bees = [];
 
 function preload() {
   bgImg = loadImage("forest_bg.jpg");
@@ -75,8 +77,8 @@ function setup() {
 	BLACK = color("rgb(0,0,0)");
 	GRAY = color("rgb(200,200,200)");
   
-	// Pretty butterfly palette (slightly richer)
-	WING_FILL_1  = color(255, 120, 215, 170);  // upper wings: brighter pink
+	// Pretty butterfly palette 
+	WING_FILL_1  = color(255, 120, 215, 170);  // upper wings: bright pink
 	WING_FILL_2  = color(255, 190,  70, 180);  // lower wings: warm gold
 	WING_OUTLINE = color(255);                 // bright white
 	BODY_FILL    = color(30, 18, 12);          // darker body
@@ -95,93 +97,182 @@ function setup() {
 	checkboxIK.style('color', GRAY);
 	
 	// Create the radio button for selecting interpolation methods
-  radioInterpolation = createRadio();
-  radioInterpolation.option('Linear', 'Linear');
-  radioInterpolation.option('Catmull-Rom', 'Catmull-Rom');
-  radioInterpolation.option('B-Spline', 'B-Spline');
-  radioInterpolation.selected('Linear'); // Default selection
-  radioInterpolation.position(50, 80); // Adjust position as needed
-  radioInterpolation.style('color', GRAY);
+	radioInterpolation = createRadio();
+	radioInterpolation.option('Linear', 'Linear');
+	radioInterpolation.option('Catmull-Rom', 'Catmull-Rom');
+	radioInterpolation.option('B-Spline', 'B-Spline');
+	radioInterpolation.selected('Linear'); // Default selection
+	radioInterpolation.position(50, 80); // Adjust position as needed
+	radioInterpolation.style('color', GRAY);
 	
 	buttonPlayStop = createButton('PLAY/STOP');
 	buttonPlayStop.position(x_offset_draw - 30, 195);
 	buttonPlayStop.mousePressed(play_animation);
 	
-  buttonFlap = createButton("GENERATE FLAP CYCLE"); 
-  buttonFlap.position(50, 110);                      
-  buttonFlap.mousePressed(generateFlapCycle);        
+	buttonFlap = createButton("Generate flap cycle");
+	buttonFlap.position(50, 110);
+	buttonFlap.mousePressed(generateFlapCycle);
+	buttonFlap.addClass('flap-button');
 	
 	sliderTimeline = createSlider(0, NUM_OF_FRAMES - 1);
-  sliderTimeline.position(x_offset_draw - 400, 170);
-  sliderTimeline.size(800);
-
-  sliderSpeed = createSlider(25, 400, 100, 25);
-  sliderSpeed.position(50, 220);   
-  sliderSpeed.style('width', '220px');
-  sliderSpeed.addClass('flight-speed-slider');
-
-  const sliderCSS = `
-    .flight-speed-slider {
-      -webkit-appearance: none;
-      appearance: none;
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.6);
-      box-shadow:
-        0 0 0 2px rgba(40, 20, 10, 0.45),
-        0 0 10px rgba(255, 200, 140, 0.4);
-      outline: none;
-    }
-
-    .flight-speed-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      border: 2px solid #ffffff;
-      background: radial-gradient(
-        circle at 30% 30%,
-        #ffffff 0%,
-        #ffe3f6 45%,
-        #ffb78a 80%
-      );
-      box-shadow:
-        0 0 6px rgba(255, 220, 150, 0.95),
-        0 0 14px rgba(255, 180, 120, 0.8);
-      cursor: pointer;
-      margin-top: -6px; /* centers the thumb on the track */
-    }
-
-    .flight-speed-slider::-moz-range-track {
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.6);
-      box-shadow:
-        0 0 0 2px rgba(40, 20, 10, 0.45),
-        0 0 10px rgba(255, 200, 140, 0.4);
-    }
-
-    .flight-speed-slider::-moz-range-thumb {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      border: 2px solid #ffffff;
-      background: radial-gradient(
-        circle at 30% 30%,
-        #ffffff 0%,
-        #ffe3f6 45%,
-        #ffb78a 80%
-      );
-      box-shadow:
-        0 0 6px rgba(255, 220, 150, 0.95),
-        0 0 14px rgba(255, 180, 120, 0.8);
-      cursor: pointer;
-    }
-  `;
+	sliderTimeline.position(x_offset_draw - 400, 170);
+	sliderTimeline.size(800);
+	sliderSpeed = createSlider(25, 400, 100, 25);
+	sliderSpeed.position(50, 275);  
+	sliderSpeed.style('width', '220px');
+	sliderSpeed.addClass('flight-speed-slider');
+			
+	const sliderCSS = `
+	  .flight-speed-slider {
+	    -webkit-appearance: none;
+	    appearance: none;
+	    height: 10px;
+	    border-radius: 999px;
+	    background: transparent; 
+	    box-shadow:
+	      0 0 0 1px rgba(255, 120, 215, 0.85),
+	      0 0 6px rgba(255, 180, 235, 0.55);
+	    outline: none;
+	  }
+	
+	  .flight-speed-slider::-webkit-slider-thumb {
+	    -webkit-appearance: none;
+	    appearance: none;
+	    width: 18px;
+	    height: 18px;
+	    border-radius: 50%;
+	    border: 2px solid #ffffff;
+	    background: radial-gradient(
+	      circle at 30% 30%,
+	      #ffffff 0%,
+	      #ffe6fb 35%,
+	      #ff87de 70%,
+	      #ffca7a 100%
+	    );
+	    box-shadow:
+	      0 0 4px rgba(255, 190, 240, 0.9),
+	      0 0 9px rgba(255, 170, 120, 0.75);
+	    cursor: pointer;
+	    margin-top: -5px;
+	  }
+	
+	  .flight-speed-slider::-moz-range-track {
+	    height: 10px;
+	    border-radius: 999px;
+	    background: transparent;
+	    box-shadow:
+	      0 0 0 1px rgba(255, 120, 215, 0.85),
+	      0 0 6px rgba(255, 180, 235, 0.55);
+	  }
+	
+	  .flight-speed-slider::-moz-range-thumb {
+	    width: 18px;
+	    height: 18px;
+	    border-radius: 50%;
+	    border: 2px solid #ffffff;
+	    background: radial-gradient(
+	      circle at 30% 30%,
+	      #ffffff 0%,
+	      #ffe6fb 35%,
+	      #ff87de 70%,
+	      #ffca7a 100%
+	    );
+	    box-shadow:
+	      0 0 4px rgba(255, 190, 240, 0.9),
+	      0 0 9px rgba(255, 170, 120, 0.75);
+	    cursor: pointer;
+	  }
+	
+	  .flap-button {
+	    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	    font-size: 13px;
+	    letter-spacing: 0.05em;
+	    text-transform: uppercase;
+	    padding: 8px 22px;
+	    border-radius: 999px;
+	    border: none;
+	    cursor: pointer;
+	
+	    color: #b4009f;
+	    font-weight: 600;
+	    text-shadow:
+	      0 1px 0 rgba(255, 255, 255, 0.9),
+	      0 0 6px rgba(255, 180, 245, 0.75);
+	
+	    background: linear-gradient(90deg, #ff8add 0%, #ffcf73 100%);
+	    box-shadow:
+	      0 4px 14px rgba(0, 0, 0, 0.35),
+	      0 0 0 1px rgba(255, 255, 255, 0.85);
+	
+	    display: inline-flex;
+	    align-items: center;
+	    gap: 6px;
+	    transition: transform 0.12s ease-out,
+	                box-shadow 0.12s ease-out,
+	                filter 0.12s ease-out;
+	  }
+	
+	  .flap-button::before {
+	    content: "🦋";
+	    font-size: 16px;
+	  }
+	
+	  .flap-button:hover {
+	    filter: brightness(1.06);
+	    transform: translateY(-1px);
+	    box-shadow:
+	      0 6px 18px rgba(0, 0, 0, 0.4),
+	      0 0 0 1px rgba(255, 255, 255, 0.9);
+	  }
+	
+	  .flap-button:active {
+	    transform: translateY(1px);
+	    box-shadow:
+	      0 3px 8px rgba(0, 0, 0, 0.35),
+	      0 0 0 1px rgba(255, 255, 255, 0.8);
+	  }
+	`;
   createElement('style', sliderCSS);
 
-	keyframes = new Keyframes();
+  keyframes = new Keyframes();
+  fireflies = [];
+  for (let i = 0; i < 10; i++) {
+    fireflies.push({
+      x: random(width * 0.06, width * 0.94),
+      y: random(height * 0.22, height * 0.80),
+      radius: random(12, 20),          
+      phase: random(TWO_PI),
+      speed: random(0.008, 0.018),
+      flutterSpeed: random(0.14, 0.22)
+    });
+  }
+
+	bees = [
+	  {
+	    baseX: 260,            
+	    baseY: 130,
+	    radius: 52,            
+	    phase: random(TWO_PI),
+	    speed: random(0.004, 0.007),
+	    scale: 2.2   
+	  },
+	  {
+	    baseX: 210,
+	    baseY: 190,
+	    radius: 65,
+	    phase: random(TWO_PI),
+	    speed: random(0.004, 0.007),
+	    scale: 2.0
+	  },
+	  {
+	    baseX: width * 0.76,   
+	    baseY: height * 0.72,
+	    radius: 60,
+	    phase: random(TWO_PI),
+	    speed: random(0.004, 0.007),
+	    scale: 2.3
+	  }
+	];
 }
 
 function draw() {
@@ -192,16 +283,17 @@ function draw() {
   } else {
     background(255);
   }
-
-  drawFlightSpeedLabel();
-  // Cute name tag for Ana the Butterfly
-  drawButterflyNameplate();
+	drawAmbientCreatures();
+	updateSliderVisuals();   // keep the DOM track in sync with Ana's speed
+	drawFlightSpeedLabel();
 	
-  translate(x_offset_draw, y_offset_draw);
-  scale(g_s);
-
-  text_x = -x_offset_draw * 0.75 / g_s;
-  text_y = -y_offset_draw * 0.9 / g_s;
+	// Cute name tag for Ana the Butterfly
+	drawButterflyNameplate();
+	translate(x_offset_draw, y_offset_draw);
+	scale(g_s);
+	
+	text_x = -x_offset_draw * 0.75 / g_s;
+	text_y = -y_offset_draw * 0.9 / g_s;
 
 	if(checkboxIK.checked()) {
 		update_q_from_transformations();
@@ -246,7 +338,7 @@ function draw() {
 		IK_points = [];
 	}
 	
-  draw_character();
+   draw_character();
 	draw_annotations();
 	draw_keyframe_animation();
 	
@@ -298,7 +390,7 @@ function setup_character() {
     .add(new Fixed("root_to_body", 0.0, 0.0))
     .add(new Hinge("body_r"));          // bend / tilt body
 
-  // Central body segment
+  // body segment
   body.add(new Fixed("body_segment", 0.0, -0.4));
 
   let head = body
@@ -576,11 +668,377 @@ function get_dof_index_by_name(name) {
   return -1;
 }
 
+function drawButterflyNameplate() {
+  push();
+  textAlign(LEFT, CENTER);
+  let mainSize = 26;
+  let subSize  = 16;
+  textSize(mainSize);
+  let mainWidth = textWidth(BUTTERFLY_NAME);
+  textSize(subSize);
+  let subWidth = textWidth(BUTTERFLY_TAGLINE);
+
+  let paddingX   = 24;
+  let paddingY   = 12;
+  let cardWidth  = max(mainWidth, subWidth) + paddingX * 2;
+  let cardHeight = mainSize + subSize + paddingY * 3;
+  let floatX = cos(frameCount * 0.017) * 7;
+  let floatY = sin(frameCount * 0.022) * 6;
+  let cx = width  * 0.80 + floatX;
+  let cy = height * 0.80 + floatY;
+  let x = cx - cardWidth  / 2;
+  let y = cy - cardHeight / 2;
+
+  // shadow
+  noStroke();
+  fill(0, 0, 0, 115);
+  rect(x + 10, y + 10, cardWidth, cardHeight, 30);
+  fill(190, 90, 210, 120);
+  rect(x - 10, y - 8, cardWidth + 20, cardHeight + 16, 34);
+  fill(255, 247, 255, 250);
+  rect(x, y, cardWidth, cardHeight, 26);
+  let washW = cardWidth * 0.52;
+  fill(255, 210, 240, 70);
+  rect(x, y, washW, cardHeight, 26);
+
+  noFill();
+  stroke(255, 204, 130, 230);
+  strokeWeight(2.5);
+  rect(x + 2, y + 2, cardWidth - 4, cardHeight - 4, 24);
+  stroke(255, 64, 190, 255);
+  strokeWeight(3);
+  rect(x - 1.5, y - 1.5, cardWidth + 3, cardHeight + 3, 28);
+  noStroke();
+  fill(82, 0, 93); // plum
+  textSize(mainSize);
+  let titleY = y + paddingY + mainSize * 0.55;
+  text(BUTTERFLY_NAME, x + paddingX, titleY);
+  let lineY = titleY + 10;
+  let left = x + paddingX;
+  let right = x + cardWidth - paddingX;
+
+  stroke(248, 190, 255, 200);
+  strokeWeight(1.5);
+  line(left, lineY, right, lineY);
+
+  noStroke();
+  for (let i = 0; i < 9; i++) {
+    let t = i / 8.0;
+    let px = lerp(left, right, t);
+    let py = lineY + sin(t * TWO_PI * 1.5) * 2.5;
+	 let r = (i % 2 === 0) ? 4 : 2.5;
+
+    fill(255, 222, 150, 235);
+    ellipse(px, py, r, r);
+
+    fill(255, 255, 255, 220);
+    ellipse(px - r * 0.2, py - r * 0.25, r * 0.45, r * 0.45);
+  }
+
+  fill(95, 63, 130, 245);
+  textSize(subSize);
+  let tagY = y + cardHeight - paddingY - subSize * 0.5;
+  text(BUTTERFLY_TAGLINE, x + paddingX, tagY);
+
+  let badgeR  = cardHeight * 0.70;
+  let badgeCX = x + cardWidth + badgeR * 0.10;
+  let badgeCY = y + cardHeight * 0.45;
+
+  // shadow
+  noStroke();
+  fill(0, 0, 0, 100);
+  ellipse(badgeCX + 7, badgeCY + 7, badgeR * 1.05, badgeR * 1.05);
+  fill(255, 110, 220, 255);
+  ellipse(badgeCX, badgeCY, badgeR, badgeR);
+  fill(255, 215, 150, 255);
+  arc(badgeCX, badgeCY, badgeR * 0.9, badgeR * 0.9, PI * 0.08, PI * 1.08, CHORD);
+  fill(255, 181, 242, 240);
+  arc(badgeCX, badgeCY, badgeR * 0.9, badgeR * 0.9, -PI * 0.92, PI * 0.08, CHORD);
+
+  push();
+  translate(badgeCX, badgeCY);
+  let flutter = sin(frameCount * 0.06) * 0.08; // tiny wing motion
+  rotate(-0.25);
+  noStroke();
+  fill(110, 40, 90, 240);
+  rect(-2, -4, 4, 14, 6);
+  fill(255, 240, 255, 245);
+
+  // left upper wing
+  push();
+  rotate(flutter);
+  ellipse(-badgeR * 0.20, -badgeR * 0.08, badgeR * 0.24, badgeR * 0.18);
+  pop();
+
+  // left lower wing
+  push();
+  rotate(flutter * 0.7);
+  ellipse(-badgeR * 0.18, badgeR * 0.08, badgeR * 0.20, badgeR * 0.14);
+  pop();
+
+  // right upper wing
+  push();
+  rotate(-flutter);
+  ellipse(badgeR * 0.20, -badgeR * 0.08, badgeR * 0.24, badgeR * 0.18);
+  pop();
+
+  // right lower wing
+  push();
+  rotate(-flutter * 0.7);
+  ellipse(badgeR * 0.18, badgeR * 0.08, badgeR * 0.20, badgeR * 0.14);
+  pop();
+  pop(); 
+
+  noFill();
+  stroke(255, 249, 230, 255);
+  strokeWeight(3);
+  ellipse(badgeCX, badgeCY, badgeR * 0.92, badgeR * 0.92);
+  pop();
+}
+
+
+function drawFlightSpeedLabel() {
+  push();
+  rectMode(CENTER);
+  textAlign(CENTER, CENTER);
+  let labelX = 160;
+  let labelY = 220;           
+  let cardW  = 260;
+  let cardH  = 78;      // slightly taller for spacing
+  let frac = 0;
+  let speedFactor = 1.0;
+  let norm = 0.0;
+
+  if (sliderSpeed) {
+    let raw    = sliderSpeed.value();
+    let minRaw = sliderSpeed.elt.min ? Number(sliderSpeed.elt.min) : 25;  
+    let maxRaw = sliderSpeed.elt.max ? Number(sliderSpeed.elt.max) : 400; 
+
+    norm        = constrain((raw - minRaw) / (maxRaw - minRaw), 0, 1);
+    frac        = norm;
+    speedFactor = raw / 100.0;
+  }
+  let haloAlpha = map(frac, 0, 1, 18, 45);
+  noStroke();
+  fill(190, 80, 210, haloAlpha); 
+  ellipse(labelX, labelY + 1, cardW * 1.02, cardH * 1.1);
+  fill(0, 0, 0, 70);
+  rect(labelX + 3, labelY + 4, cardW - 6, cardH - 4, 22);
+  fill(255, 248, 255, 245);
+  rect(labelX, labelY, cardW, cardH, 22);
+  push();
+  translate(labelX - cardW / 2, labelY - cardH / 2);
+  noStroke();
+  fill(255, 195, 235, 65);
+  rect(0, 0, cardW * 0.55, cardH, 22);
+  fill(255, 220, 170, 50);
+  rect(cardW * 0.45, 0, cardW * 0.55, cardH, 22);
+  pop();
+  noFill();
+  stroke(255, 210, 150, 215);
+  strokeWeight(1.7);
+  rect(labelX, labelY, cardW - 5, cardH - 5, 20);
+
+  stroke(255, 70, 200, 245);
+  strokeWeight(2.2);
+  rect(labelX, labelY, cardW, cardH, 22);
+  let badgeR = 22;   // was 20
+  let rowY   = labelY - cardH * 0.30;
+  let slowX  = labelX - cardW * 0.32;
+  let fastX  = labelX + cardW * 0.32;
+  noStroke();
+  fill(245, 210, 255, 235);
+  ellipse(slowX, rowY, badgeR * 2, badgeR * 2);
+  textSize(22);
+  fill(120, 60, 150);
+  text("🐜", slowX, rowY + 2);
+
+  noStroke();
+  fill(245, 210, 255, 235);
+  ellipse(slowX, rowY, badgeR * 2.4, badgeR * 2.4);
+  fill(255, 225, 170, 240);
+  ellipse(fastX, rowY, badgeR * 2.4, badgeR * 2.4);
+
+  textSize(28);      // was 22
+  fill(120, 60, 150);
+  text("🐜", slowX, rowY + 1);
+  fill(180, 90, 30);
+  text("🐝", fastX, rowY + 1);
+	
+  if (speedFactor <= 0.5) {        // crown for super slow
+	  textSize(18);
+	  fill(255, 245, 210, 255);
+	  text("👑", slowX, rowY - badgeR * 0.9);
+	} else if (speedFactor >= 3.0) { // crown for wild fast
+	  textSize(18);
+	  fill(255, 245, 210, 255);
+	  text("👑", fastX, rowY - badgeR * 0.9);
+	}
+
+  textAlign(CENTER, CENTER);
+  textSize(12);
+
+  let slowBright    = color(210, 130, 255);  
+  let slowDim       = color(150, 95, 180);   
+  let slowTextCol   = lerpColor(slowBright, slowDim, norm);
+
+  fill(255, 255, 255, 220);   // tiny glow
+  text("slow", slowX, rowY + 21);
+  fill(slowTextCol);
+  text("slow", slowX, rowY + 20);
+
+  let fastBright    = color(255, 185, 90);   
+  let fastDim       = color(215, 135, 60);  
+  let fastTextCol   = lerpColor(fastDim, fastBright, norm);
+
+  fill(255, 255, 255, 220);   // tiny glow
+  text("fast", fastX, rowY + 21);
+  fill(fastTextCol);
+  text("fast", fastX, rowY + 20);
+
+  let baseTitleCol = color(55, 15, 75);
+  let hotTitleCol  = color(red(WING_FILL_1), green(WING_FILL_1), blue(WING_FILL_1));
+  let titleCol     = lerpColor(baseTitleCol, hotTitleCol, frac * 0.4);
+  let titleY = labelY - 5;
+  textSize(20);
+  fill(255, 255, 255, 220);
+  text("Flight speed", labelX + 1, titleY + 1);
+  fill(titleCol);
+  text("Flight speed", labelX, titleY);
+  let meterY = labelY + 12;
+  let trackX1 = slowX + badgeR * 1.2;
+  let trackX2 = fastX - badgeR * 1.2;
+  let trackW  = trackX2 - trackX1;
+  let trackH  = 6;
+
+  noStroke();
+  fill(255, 255, 255, 175);
+  rect((trackX1 + trackX2)/2, meterY, trackW, trackH, 999);
+
+  let steps = 40;
+  for (let i = 0; i < steps; i++) {
+    let t = i / (steps - 1);
+    if (t > norm) break;
+
+    let x = lerp(trackX1, trackX2, t);
+    let c = lerpColor(WING_FILL_1, WING_FILL_2, t);
+    c = color(
+      min(red(c)   + 25, 255),
+      min(green(c) + 15, 255),
+      min(blue(c)  + 25, 255)
+    );
+
+    stroke(c);
+    line(x, meterY - trackH*0.5, x, meterY + trackH*0.5);
+  }
+
+  let minRaw = sliderSpeed ? Number(sliderSpeed.elt.min || 25) : 25;
+  let maxRaw = sliderSpeed ? Number(sliderSpeed.elt.max || 400) : 400;
+  let defNorm = constrain((100 - minRaw)/(maxRaw-minRaw),0,1);
+  let defX = lerp(trackX1, trackX2, defNorm);
+
+  stroke(255, 245, 255, 230);
+  strokeWeight(1.4);
+  line(defX, meterY - trackH*1.2, defX, meterY + trackH*1.2);
+
+  let curX = lerp(trackX1, trackX2, norm);
+  noStroke();
+  fill(255, 255, 255, 240);
+  ellipse(curX, meterY, trackH+3, trackH+3);
+  fill(lerpColor(WING_FILL_1, WING_FILL_2, norm));
+  ellipse(curX, meterY, trackH-1, trackH-1);
+  textSize(13);
+  fill(95,63,130,235);
+  let descText = nf(speedFactor,1,2) + "×  –  " + getSpeedDescriptor(speedFactor);
+  let descY = labelY + cardH * 0.37;
+  text(descText, labelX, descY);
+
+  pop();
+}
+
+function drawBeeIcon(cx, cy, s, emphasis) {
+  let alphaBody = lerp(90, 255, emphasis);
+  let flap = sin(frameCount * 0.18) * 0.30 * emphasis;
+  push();
+  translate(cx, cy);
+  scale(s);
+
+  noStroke();
+  fill(255, 215, 120, alphaBody);
+  ellipse(0, 0, 16, 11);
+  fill(135, 70, 95, alphaBody);
+  rectMode(CENTER);
+  rect(0, -2, 16, 3, 2);
+  rect(0,  2, 16, 3, 2);
+  fill(255, 245, 255, 220);
+  push();
+  rotate(-0.9 + flap);
+  ellipse(-4.5, -6, 10, 7);
+  pop();
+  push();
+  rotate(0.9 - flap);
+  ellipse(4.5, -6, 10, 7);
+  pop();
+  pop();
+}
+
+function drawAntIcon(cx, cy, s, emphasis) {
+  let alphaBody = lerp(60, 230, emphasis);
+  let bob = sin(frameCount * 0.16 + 1.2) * 1.5 * emphasis;
+  push();
+  translate(cx, cy + bob);
+  scale(s);
+  stroke(70, 40, 100, alphaBody);
+  strokeWeight(1.2);
+  fill(90, 55, 130, alphaBody);
+  ellipse(-4, 0, 4, 4);   // head
+  ellipse(0,  1.5, 5, 4.2);
+  ellipse(4,  2.0, 5.5, 4.4);
+  noFill();
+  stroke(90, 55, 130, alphaBody);
+  bezier(-5, -1.5, -7, -4, -6, -5.5, -4.5, -6);
+  bezier(-3, -1.5, -1, -4,  0, -5.5,  1.5, -6);
+
+  pop();
+}
+
+function updateSliderVisuals() {
+  if (!sliderSpeed) return;
+
+  const v    = sliderSpeed.value();
+  const minV = sliderSpeed.elt.min ? Number(sliderSpeed.elt.min) : 0;
+  const maxV = sliderSpeed.elt.max ? Number(sliderSpeed.elt.max) : 100;
+  const frac = constrain((v - minV) / (maxV - minV), 0, 1);
+  const pct  = frac * 100;
+  const cSlow  = WING_FILL_1;
+  const cFast  = WING_FILL_2;
+  const cMid   = lerpColor(cSlow, cFast, frac);
+  const slowCSS = `rgba(${red(cSlow)},${green(cSlow)},${blue(cSlow)},0.9)`;
+  const midCSS  = `rgba(${red(cMid)}, ${green(cMid)}, ${blue(cMid)}, 0.95)`;
+  const restCSS = `rgba(255,255,255,0.22)`;
+
+  sliderSpeed.elt.style.background = `
+    linear-gradient(
+      90deg,
+      ${slowCSS} 0%,
+      ${midCSS}  ${pct}%,
+      ${restCSS} ${pct}%,
+      ${restCSS} 100%
+    )
+  `;
+}
+
+function getSpeedDescriptor(f) {
+  if (f < 0.6)  return "ant crawl slow";
+  if (f < 1.1)  return "soft forest drift";
+  if (f < 2.0)  return "smooth fly";
+  if (f < 3.0)  return "excited little buzz";
+  return "wild bee, chaos!";
+}
+
 function generateFlapCycle() {
-  // Clear existing keyframes
   keyframes.keys = [];
 
-  // Start from frame 0
   current_frame = 0;
   sliderTimeline.value(0);
 
@@ -588,17 +1046,12 @@ function generateFlapCycle() {
   let period = 80;       // frames per full flap cycle
 
   for (let t = 0; t < NUM_OF_FRAMES; t++) {
-    // Start from the current q as a base pose
     let pose = [...q];
-
     let flap = amplitude * Math.sin((2 * Math.PI * t) / period);
-
     function setJoint(name, value) {
       let idx = get_dof_index_by_name(name);
       if (idx >= 0) pose[idx] = value;
     }
-
-    // Right wing = driver
     setJoint("j_r_upper_wing_root", flap);
     setJoint("j_r_upper_wing_mid",  -flap * 0.5);
     setJoint("j_r_lower_wing_root", flap * 0.8);
@@ -606,10 +1059,8 @@ function generateFlapCycle() {
 
     // Mirror to left side
     apply_wing_symmetry_to_q(pose);
-
     keyframes.add_keyframe(t, pose);
   }
-
   playing = true;
 }
 
@@ -652,117 +1103,130 @@ function play_animation() {
   }
 }
 
-function drawButterflyNameplate() {
+function drawAmbientCreatures() {
   push();
-
-  textAlign(LEFT, CENTER);
-
-  // Font sizes
-  let mainSize = 20;
-  let subSize  = 13;
-
-  textSize(mainSize);
-  let mainWidth = textWidth(BUTTERFLY_NAME);
-
-  textSize(subSize);
-  let subWidth  = textWidth(BUTTERFLY_TAGLINE);
-
-  let paddingX = 16;
-  let paddingY = 8;
-
-  let cardWidth  = max(mainWidth, subWidth) + paddingX * 2;
-  let cardHeight = mainSize + subSize + paddingY * 3;
-
-  // bottom right ish but away from sliders
-  let cx = width * 0.78;
-  let cy = height * 0.82;
-
-  let x = cx - cardWidth  / 2;
-  let y = cy - cardHeight / 2;
-
   noStroke();
-  fill(0, 0, 0, 80);
-  rect(x + 3, y + 4, cardWidth, cardHeight, 18);
-
-  fill(255, 255, 255, 230);
-  rect(x, y, cardWidth, cardHeight, 18);
-
-  noFill();
-  stroke(40, 25, 10, 200);
-  strokeWeight(1.5);
-  rect(x, y, cardWidth, cardHeight, 18);
-
-  // Text
+  for (let i = 0; i < 4; i++) {
+    let a = 50 - i * 10;
+    fill(10, 0, 20, a);
+    rect(0, 0, width, 40 + i * 18);
+    rect(0, height - (40 + i * 18), width, 40 + i * 18);
+    rect(0, 0, 40 + i * 18, height);
+    rect(width - (40 + i * 18), 0, 40 + i * 18, height);
+  }
+  blendMode(ADD);
   noStroke();
-  fill(40, 25, 10);          
-  textSize(mainSize);
-  text(BUTTERFLY_NAME, x + paddingX, y + paddingY + mainSize * 0.4);
 
-  fill(90, 60, 40, 220);     
-  textSize(subSize);
-  text(
-    BUTTERFLY_TAGLINE,
-    x + paddingX,
-    y + paddingY + mainSize + subSize * 1.2
-  );
+  let speedNorm = 0.0;
+  if (sliderSpeed) {
+    let raw    = sliderSpeed.value();
+    let minRaw = Number(sliderSpeed.elt.min || 25);
+    let maxRaw = Number(sliderSpeed.elt.max || 400);
+    speedNorm  = constrain((raw - minRaw) / (maxRaw - minRaw), 0, 1);
+  }
 
+  let fireflySpeedBoost = lerp(0.75, 1.6, speedNorm); 
+  let fireflyGlowBoost  = lerp(0.8,  1.7, speedNorm);
+
+  for (let i = 0; i < fireflies.length; i++) {
+    let f = fireflies[i];
+
+	  let wobbleX = sin(frameCount * f.speed * fireflySpeedBoost + f.phase) * 8;
+	  let wobbleY = cos(frameCount * f.speed * 0.9 * fireflySpeedBoost + f.phase) * 6;
+	  let pulse = (0.5 + 0.5 * sin(frameCount * f.speed * 2.0 * fireflySpeedBoost + f.phase))
+                * fireflyGlowBoost;
+
+    let fx = f.x + wobbleX;
+    let fy = f.y + wobbleY;
+
+    let rOuter = f.radius * (0.6 + 0.3 * pulse) * 0.6;
+    let rInner = f.radius * 0.28 * 0.6;
+
+    fill(215, 238, 205, 10 + 25 * pulse);
+    ellipse(fx, fy, rOuter * 2.2, rOuter * 2.2);
+    let haloColor = lerpColor(WING_FILL_1, WING_FILL_2, 0.4);
+    fill(
+      red(haloColor),
+      green(haloColor),
+      blue(haloColor),
+      18 + 35 * pulse
+    );
+    ellipse(fx, fy, rOuter * 1.5, rOuter * 1.5);
+    fill(250, 252, 230, 35 + 55 * pulse);
+    ellipse(fx, fy, rInner * 2.0, rInner * 2.0);
+    let trailSteps = 4;
+    let sparkleBase = lerpColor(WING_FILL_1, color(255, 255, 255, 0), 0.4);
+
+    for (let j = 1; j <= trailSteps; j++) {
+      let t = j / (trailSteps + 1);
+      let tx = fx - wobbleX * 0.22 * j;
+      let ty = fy - wobbleY * 0.22 * j;
+      let rTrail = rInner * (1.0 - 0.4 * t);
+      fill(
+        red(sparkleBase),
+        green(sparkleBase),
+        blue(sparkleBase),
+        32 * (1.0 - t)
+      );
+      ellipse(tx, ty, rTrail * 1.2, rTrail * 1.2);
+    }
+    drawFireflyButterfly(fx, fy, f.radius, f.phase);
+  }
+
+  blendMode(BLEND);
+  for (let i = 0; i < bees.length; i++) {
+    let b = bees[i];
+    let ang = frameCount * b.speed + b.phase;
+    let bx = b.baseX + cos(ang) * b.radius;
+    let by = b.baseY + sin(ang * 1.1) * (b.radius * 0.6);
+
+    let emph = 0.6 + 0.4 * (0.5 + 0.5 * sin(ang * 1.3));
+    drawBeeIcon(bx, by, b.scale, emph);
+  }
   pop();
 }
 
-function drawFlightSpeedLabel() {
+function drawFireflyButterfly(fx, fy, size, phase) {
   push();
-  rectMode(CENTER);
-  textAlign(CENTER, CENTER);
+  translate(fx, fy);
 
-  let labelX = 150;
-  let labelY = 205;
-  let cardW  = 170;
-  let cardH  = 38;
+  let hover = sin(frameCount * 0.03 + phase) * (size * 0.09);
+  let flap  = sin(frameCount * 0.22 + phase) * 0.35;
+  translate(0, hover);
+  let bodyLen   = size * 1.05;   
+  let bodyWidth = size * 0.40;  
+
+  // body
+  noStroke();
+  rectMode(CENTER);
+  fill(30, 20, 42, 185);
+  rect(0, 0, bodyLen, bodyWidth, bodyWidth * 0.7);
+
+  // head
+  fill(55, 35, 75, 190);
+  ellipse(-bodyLen * 0.45, 0, bodyWidth * 0.8, bodyWidth * 0.8);
+
+  let wingPink = lerpColor(WING_FILL_1, color(255, 150, 220, 120), 0.55); 
+  let wingGold = lerpColor(WING_FILL_2, color(255, 200, 170, 120), 0.50);
+  stroke(255, 255, 255, 130);
+  strokeWeight(0.8);
+
+  push();
+  rotate(-0.14 + flap);
+  fill(red(wingPink), green(wingPink), blue(wingPink), 155);
+  ellipse(-bodyLen * 0.25, -bodyWidth * 1.0, size * 1.75, size * 1.25);
+  pop();
+
+  push();
+  rotate(0.14 - flap);
+  fill(red(wingGold), green(wingGold), blue(wingGold), 155);
+  ellipse(bodyLen * 0.25, -bodyWidth * 1.0, size * 1.75, size * 1.25);
+  pop();
 
   noStroke();
-  fill(0, 0, 0, 90);
-  rect(labelX + 3, labelY + 4, cardW + 6, cardH + 6, 20);
-
-  fill(255, 255, 255, 235);
-  rect(labelX, labelY, cardW, cardH, 20);
-
-  let frac = 0;
-  if (sliderSpeed) {
-    let minV = sliderSpeed.elt.min ? Number(sliderSpeed.elt.min) : 0;
-    let maxV = sliderSpeed.elt.max ? Number(sliderSpeed.elt.max) : 100;
-    frac = constrain((sliderSpeed.value() - minV) / (maxV - minV), 0, 1);
-  }
-
-  let stripeY = labelY - cardH * 0.32;
-  let stripeW = cardW * 0.78;
-  let stripeH = 6;
-
-  fill(255, 255, 255, 90);               // pale track
-  rect(labelX, stripeY, stripeW, stripeH, 4);
-
-  let fillW = stripeW * frac;
-
-  if (fillW > 0.001) {
-    let leftX = labelX - stripeW / 2;
-
-    let leftW = min(fillW, fillW / 2);
-    fill(red(WING_FILL_1), green(WING_FILL_1), blue(WING_FILL_1), 220);
-    rect(leftX + leftW / 2, stripeY, leftW, stripeH, 4);
-
-    let rightW = fillW - leftW;
-    if (rightW > 0) {
-      fill(red(WING_FILL_2), green(WING_FILL_2), blue(WING_FILL_2), 230);
-      rect(leftX + leftW + rightW / 2, stripeY, rightW, stripeH, 4);
-    }
-  }
-
-  fill(40, 25, 10);
-  textSize(14);
-  text("Flight speed", labelX, labelY - 2);
-
-  fill(90, 60, 40, 220);
-  textSize(10);
-  text("how fast Ana flaps", labelX, labelY + 10);
-
+  fill(255, 200, 240, 110);
+  ellipse(bodyLen * 0.38, 0, bodyWidth * 1.05, bodyWidth * 1.05);
+  fill(255, 235, 250, 140);
+  ellipse(bodyLen * 0.38, 0, bodyWidth * 0.55, bodyWidth * 0.55);
   pop();
 }
