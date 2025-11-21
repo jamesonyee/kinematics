@@ -11,18 +11,30 @@ class Keyframes {
 			this.interpolated_frames.push(pose);
 		}
   }
-
-	add_keyframe(time, pose) {
-		for (let i = 0; i < this.keys.length; i++) {
-			if (this.keys[i][0] >= time) {
-				if (this.keys[i][0] == time)
-					this.keys.splice(i, 1);
-				this.keys.splice(i, 0, [time, pose]);
-				break;
-			}
-		}
-	}
 	
+	add_keyframe(time, pose) {
+	  let inserted = false;
+	
+	  for (let i = 0; i < this.keys.length; i++) {
+	    if (this.keys[i][0] >= time) {
+	
+	      if (this.keys[i][0] === time) {
+	        this.keys.splice(i, 1);
+	      }
+	
+	      // Insert new keyframe at position i
+	      this.keys.splice(i, 0, [time, pose]);
+	      inserted = true;
+	      break;
+	    }
+	  }
+	
+	  // If time is after all existing keys, append at the end
+	  if (!inserted) {
+	    this.keys.push([time, pose]);
+	  }
+	}
+
 	linear_interpolation() {
 	  // Initialize an array of NUM_OF_FRAMES poses so indices 0..NUM_OF_FRAMES-1 exist
 	  this.interpolated_frames = [];
