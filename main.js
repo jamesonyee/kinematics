@@ -113,39 +113,6 @@ function draw() {
 
   text_x = -x_offset_draw * 0.75 / g_s;
   text_y = -y_offset_draw * 0.9 / g_s;
-
-  push();
-	stroke(GRAY);
-	fill(GRAY);
-	strokeWeight(0.0001);
-	textSize(SMALL_TEXT_SIZE);
-
-	let text_height = text_y + 2.2;
-	text("Click on a joint to select the local frame of IK point you wish to create", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("Shift-click the desired location for the IK point", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("Drag the circle to change the target of IK point", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("Try to create another IK point in a different local frame", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("Shift-click on the circle to remove a created IK point", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("Use the checkbox to toggle between IK/FK", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("In FK mode, select a joint and adjust joint angle with +/-", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("If root is selected, can use arrow keys to translate", text_x - 0.7, text_height);
-	text_height += 0.08;	
-	text("Drag the slider to the time you wish to create a keyframe", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("When the pose is ready, press 'k' to create a keyframe", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("Create multiple keyframes to make an animation", text_x - 0.7, text_height);
-	text_height += 0.08;
-	text("Try different ways of interpolation using the radio buttons", text_x - 0.7, text_height);
-pop();
-	
 	
 	if(checkboxIK.checked()) {
 		update_q_from_transformations();
