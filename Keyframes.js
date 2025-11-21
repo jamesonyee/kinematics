@@ -62,33 +62,67 @@ class Keyframes {
 	  }
 	
 	  for (let i = 0; i < this.keys.length - 1; i++) {
-	    let p0 = this.keys[Math.max(0, i - 1)][1];
-	    let p1 = this.keys[i][1];
-	    let p2 = this.keys[i + 1][1];
-	    let p3 = this.keys[Math.min(this.keys.length - 1, i + 2)][1];
-	
-	    let t_start = this.keys[i][0];
-	    let t_end   = this.keys[i + 1][0];
-	    let duration = t_end - t_start;
-	    if (duration <= 0) continue;
-	
-	    for (let t = 0; t <= duration; t++) {
-	      let u  = t / duration;
-	      let u2 = u * u;
-	      let u3 = u2 * u;
-	
+		  let idx0 = Math.max(0, i - 1);
+		  let idx1 = i;
+		  let idx2 = i + 1;
+		  let idx3 = Math.min(this.keys.length - 1, i + 2);
+		  let posePrev = this.keys[idx0][1];
+		  let poseStart = this.keys[idx1][1];
+		  let poseNext = this.keys[idx2][1];
+		  let poseFuture = this.keys[idx3][1];
+		  let tBegin = this.keys[idx1][0];
+		  let tEnd  = this.keys[idx2][0];
+		  let span = tEnd - tBegin;
+		  if (span <= 0) {
+		    continue;
+		  }
+		  
+	    for (let step = 0; step <= span; step++) {
+	      let u  = step / span;
+			let jointCount = poseStart.length;
+	      let uSquared = u * u;
+	      let uCubed = u * u * u;
+	  
 	      let frame = [];
-	      for (let k = 0; k < p1.length; k++) {
-	        let c0 = p1[k];
-	        let c1 = 0.5 * (p2[k] - p0[k]);
-	        let c2 = 0.5 * (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]);
-	        let c3 = 0.5 * (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]);
-	        frame.push(c3 * u3 + c2 * u2 + c1 * u + c0);
-	      }
+	      for (let iter = 0; iter < jointCount; iter++) {
+			  let vPrev   = posePrev[iter];
+			  let vStart  = poseStart[iter];
+			  let vNext   = poseNext[iter];
+			  let vFuture = poseFuture[iter];
+
+			  let offset0 = vStart;
+			  let diff1   = vNext - vPrev;
+			  let offset1 = 0.5 * diff1;
+			
+			  let partA   = 2 * vPrev;
+			  let partB   = -5 * vStart;
+			  let partC   = 4 * vNext;
+			  let partD   = -vFuture;
+			  let sum2    = partA + partB + partC + partD;
+			  let offset2 = 0.5 * sum2;
+			
+			  let partE   = -vPrev;
+			  let partF   = 3 * vStart;
+			  let partG   = -3 * vNext;
+			  let partH   = vFuture;
+			  let sum3    = partE + partF + partG + partH;
+			  let offset3 = 0.5 * sum3;
+
+			  let cubicTerm    = offset3 * uCubed;
+			  let quadraticTerm = offset2 * uSquared;
+			  let linearTerm   = offset1 * u;
+			  let constantTerm = offset0;
+			
+			  let value = cubicTerm + quadraticTerm + linearTerm + constantTerm;
+			  frame.push(value);
+			}
 	
-	      let idx = t_start + t;
-	      if (idx >= 0 && idx < NUM_OF_FRAMES) {
-	        this.interpolated_frames[idx] = frame;
+	      let frameIndex = tBegin + step;		
+			let withinLower = frameIndex >= 0;
+			let withinUpper = frameIndex < NUM_OF_FRAMES;
+			
+			if (withinLower && withinUpper) {
+	        this.interpolated_frames[frameIndex] = frame;
 	      }
 	    }
 	  }
