@@ -1,92 +1,88 @@
 // STUDENT'S CODE STARTS
 
 function take_IK_step() {
-  let ndofs = q.length;
-  let g = math.zeros([ndofs]);
+  // return the gradient of the IK residual, a 1d array of length ndofs
+	// TODO: STUDENT'S CODE STARTS
+	// Please copy your code from P1
+	let ndofs = dof_list.length;
+	let g = math.zeros([q.length]);
 
-  let step_size = 0.05;
-
-  if (IK_points.length === 0) return;
-
-  let w = 1.0 / IK_points.length;
-
-  IK_points.forEach((p) => {
-
-    let T_point = p.tr.global_transform();
-    let cur_pos = [T_point[0][2], T_point[1][2]];
-    let error = math.subtract(p.target_pos, cur_pos);
-
-    let J = compute_jacobian(p.tr);
-
-    let step = new Array(ndofs).fill(0);
-    for (let i = 0; i < ndofs; i++) {
-      step[i] = J.get([0,i]) * error[0] + J.get([1,i]) * error[1];
-      step[i] *= w;
-    }
-
-    g = math.add(g, step);
-  });
-
-  // Only update joint DOFs once 
-  for (let i = 0; i < ndofs; i++) {
-    q[i] += step_size * g[i];
-  }
-
-  // Now push the updated q into the model 
-  set_joint_positions(q);
+	
+	for (let p0 of IK_points) {
+		let M = p0.tr.global_transform();
+		let p = math.multiply(M, p0.local_pos);   
+	
+		let cx = p[0] - p0.target_pos[0];
+		let cy = p[1] - p0.target_pos[1];
+	
+	
+		let J = compute_jacobian(p0);
+	
+	
+		for (let i = 0; i < ndofs; i++) {
+			let dcdx = J[0][i];
+			let dcdy = J[1][i];
+			g[i] += 2 * (dcdx * cx + dcdy * cy);
+		}
+	}
+ 
+	// STUDENT'S CODE ENDS
+	
+  return g;
 }
-
 
 function compute_jacobian(body_point) {
-  let ndofs = dof_list.length;
-  let J = math.zeros([2, ndofs]);
+  // return the Jacobian matrix, a 2xN matrix
+	let ndofs = dof_list.length;
+	let J = math.zeros([2, ndofs]);
 
-  for (let i = 0; i < ndofs; i++) {
-    let transform = dof_list[i];
+	let tr = body_point.tr;
+	let p0 = body_point.local_pos;   
 
-    // Only joints that affect this point
-    if (!body_point.dependent_dofs.has(transform)) continue;
 
-    let tempJ = J.valueOf();
-
-    // Translation Joint
-	if (transform instanceof Translation) {
-	
-	    // local direction in 2D
-	    let axis_local = transform.axis === "x" ? [1, 0] : [0, 1];
-	
-	    // full global transform
-	    let G = transform.global_transform();
-	
-	    // rotate local axis by global rotation
-	    let axis_world = [
-	        G[0][0] * axis_local[0] + G[0][1] * axis_local[1],
-	        G[1][0] * axis_local[0] + G[1][1] * axis_local[1]
-	    ];
-	
-	    tempJ[0][i] = axis_world[0];
-	    tempJ[1][i] = axis_world[1];
-	
-	    J = math.matrix(tempJ);
+	let chain = [];
+	let node = tr;
+	while (node !== null) {
+		chain.unshift(node);
+		node = node.parent;
 	}
+	
 
+	for (let i = 0; i < ndofs; i++) {
+		let joint = dof_list[i];
 
-    // Hinge joint
-    else if (transform instanceof Hinge) {
+		
+		if (!tr.dependent_dofs.has(joint)) continue;
 
-      let joint_pos = transform.global_position();
-      let point_pos = body_point.global_position();
-      let r = math.subtract(point_pos, joint_pos);
+		
+		let jIndex = chain.indexOf(joint);
+		if (jIndex < 0) continue;
 
-      let J_column = [-r[1], r[0]];
+		
+		let T_left = math.identity([3]);
+		for (let k = 0; k < jIndex; k++) {
+			T_left = math.multiply(T_left, chain[k].local_transform());
+		}
 
-      tempJ[0][i] = J_column[0];
-      tempJ[1][i] = J_column[1];
-      J = math.matrix(tempJ);
-    }
-  }
+		
+		let dT = joint.local_derivative();
 
+		
+		let T_right = math.identity([3]);
+		for (let k = jIndex + 1; k < chain.length; k++) {
+			T_right = math.multiply(T_right, chain[k].local_transform());
+		}
+
+		
+		let dT_global = math.multiply(math.multiply(T_left, dT), T_right);
+		
+	
+		let dpos = math.multiply(dT_global, p0);
+
+		J[0][i] = dpos[0]; 
+		J[1][i] = dpos[1];
+  } 
+	
   return J;
 }
-
 // STUDENT'S CODE ENDS
